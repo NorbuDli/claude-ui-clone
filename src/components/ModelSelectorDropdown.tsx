@@ -19,7 +19,6 @@ export const ModelSelectorDropdown: React.FC = () => {
 
   const [isOpen, setIsOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<'effort' | 'more-models' | null>(null);
-  const [placement, setPlacement] = useState<'top' | 'bottom'>('top');
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const effortTimerRef = useRef<any>(null);
@@ -44,36 +43,6 @@ export const ModelSelectorDropdown: React.FC = () => {
   };
 
   const currentModel = ALL_MODELS.find((m) => m.id === selectedModel) || PRIMARY_MODELS[2]; // default Sonnet 5
-
-  // Smart placement calculation
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const calculatePosition = () => {
-      if (!dropdownRef.current) return;
-      const rect = dropdownRef.current.getBoundingClientRect();
-      const dropdownHeight = 360;
-
-      const spaceAbove = rect.top;
-      const spaceBelow = window.innerHeight - rect.bottom;
-
-      // If it doesn't fit on top and there's more space below, display below (and vice versa)
-      if (spaceAbove < dropdownHeight + 16 && spaceBelow > spaceAbove) {
-        setPlacement('bottom');
-      } else {
-        setPlacement('top');
-      }
-    };
-
-    calculatePosition();
-    window.addEventListener('resize', calculatePosition);
-    window.addEventListener('scroll', calculatePosition, true);
-
-    return () => {
-      window.removeEventListener('resize', calculatePosition);
-      window.removeEventListener('scroll', calculatePosition, true);
-    };
-  }, [isOpen]);
 
   // Close when clicking outside
   useEffect(() => {
@@ -154,9 +123,7 @@ export const ModelSelectorDropdown: React.FC = () => {
       {/* 2. MAIN DROPDOWN POPOVER */}
       {isOpen && (
         <div
-          className={`absolute right-0 w-[280px] bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl p-1.5 z-50 text-xs text-[#ECEBE7] animate-in fade-in zoom-in-95 duration-100 ${
-            placement === 'bottom' ? 'top-full mt-2.5' : 'bottom-full mb-2.5'
-          }`}
+          className="absolute right-0 bottom-full mb-2.5 w-[280px] bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl p-1.5 z-50 text-xs text-[#ECEBE7] select-none duration-75"
         >
           
           {/* PRIMARY MODELS LIST */}
@@ -248,9 +215,7 @@ export const ModelSelectorDropdown: React.FC = () => {
             {/* EFFORT SUBMENU PANEL */}
             {activeSubmenu === 'effort' && (
               <div
-                className={`absolute right-full mr-1.5 w-[260px] bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl p-2.5 z-50 text-xs duration-75 space-y-2 select-none ${
-                  placement === 'bottom' ? 'top-0' : 'bottom-0'
-                }`}
+                className="absolute right-full mr-1.5 bottom-0 w-[260px] bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl p-2.5 z-50 text-xs duration-75 space-y-2 select-none"
                 onMouseEnter={() => clearTimeout(effortTimerRef.current)}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -351,9 +316,7 @@ export const ModelSelectorDropdown: React.FC = () => {
             {/* MORE MODELS NESTED SUBMENU */}
             {activeSubmenu === 'more-models' && (
               <div
-                className={`absolute right-full mr-1.5 w-[220px] bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl p-1.5 z-50 text-xs duration-75 ${
-                  placement === 'bottom' ? 'top-0' : 'bottom-0'
-                }`}
+                className="absolute right-full mr-1.5 bottom-0 w-[220px] bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl p-1.5 z-50 text-xs duration-75"
                 onMouseEnter={() => clearTimeout(moreTimerRef.current)}
               >
                 <div className="space-y-0.5">

@@ -159,14 +159,14 @@ export const CustomizeModal: React.FC = () => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 duration-75"
       onClick={() => setIsSettingsOpen(false)}
       role="dialog"
       aria-modal="true"
       aria-label="Settings"
     >
       <div
-        className="w-full max-w-4xl h-[680px] max-h-[90vh] bg-[#141413] border border-[#262522] rounded-2xl shadow-2xl flex flex-col overflow-hidden select-none animate-in zoom-in-95 duration-100"
+        className="w-full max-w-4xl h-[680px] max-h-[90vh] bg-[#141413] border border-[#262522] rounded-2xl shadow-2xl flex flex-col overflow-hidden select-none duration-75"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Bar */}

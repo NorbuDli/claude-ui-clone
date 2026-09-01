@@ -1104,14 +1104,14 @@ export const ProjectsView: React.FC = () => {
         )}
       </div>
 
-      {/* Create a Project Modal (Matching Image 1) */}
+      {/* Create a Project Modal */}
       {isNewProjectModalOpen && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 duration-75"
           onClick={() => setIsNewProjectModalOpen(false)}
         >
           <div
-            className="w-full max-w-[480px] bg-[#1F1E1C] border border-[#2E2D2A] rounded-2xl shadow-2xl overflow-hidden p-6 space-y-5 text-xs animate-in zoom-in-95 duration-150"
+            className="w-full max-w-[480px] bg-[#1F1E1C] border border-[#2E2D2A] rounded-2xl shadow-2xl overflow-hidden p-6 space-y-5 text-xs duration-75"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header with Title and Close Button */}

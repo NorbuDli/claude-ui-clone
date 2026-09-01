@@ -79,13 +79,13 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 cursor-default"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-black/75 duration-75 cursor-default"
       role="dialog"
       aria-modal="true"
       aria-label="Search conversations"
     >
       <div
-        className="w-full max-w-xl bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl overflow-hidden select-none cursor-auto animate-in zoom-in-95 duration-100"
+        className="w-full max-w-xl bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl overflow-hidden select-none cursor-auto duration-75"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Input Bar */}
