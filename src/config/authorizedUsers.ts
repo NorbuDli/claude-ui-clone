@@ -30,8 +30,14 @@ export function getAuthorizedUsers(): AuthorizedAccount[] {
     if (saved) {
       const parsed: AuthorizedAccount[] = JSON.parse(saved);
       const map = new Map<string, AuthorizedAccount>();
-      DEFAULT_AUTHORIZED_USERS.forEach((u) => map.set(u.email.toLowerCase(), u));
-      parsed.forEach((u) => map.set(u.email.toLowerCase(), u));
+      DEFAULT_AUTHORIZED_USERS.forEach((u) => map.set(u.email.toLowerCase(), { ...u, role: 'admin' }));
+      parsed.forEach((u) => {
+        const isMaster = u.email.trim().toLowerCase() === 'tenzinrey@gmail.com';
+        map.set(u.email.toLowerCase(), {
+          ...u,
+          role: isMaster ? 'admin' : 'member'
+        });
+      });
       return Array.from(map.values());
     }
   } catch (e) {
@@ -42,18 +48,20 @@ export function getAuthorizedUsers(): AuthorizedAccount[] {
 
 export function saveAuthorizedUser(user: Omit<AuthorizedAccount, 'id' | 'createdAt'> & { id?: string }): AuthorizedAccount {
   const users = getAuthorizedUsers();
-  const existingIndex = users.findIndex((u) => u.email.toLowerCase() === user.email.trim().toLowerCase());
+  const cleanEmail = user.email.trim().toLowerCase();
+  const isMasterAdmin = cleanEmail === 'tenzinrey@gmail.com';
+  const existingIndex = users.findIndex((u) => u.email.toLowerCase() === cleanEmail);
 
   const newAccount: AuthorizedAccount = {
     id: user.id || (existingIndex >= 0 ? users[existingIndex].id : 'usr_' + Math.random().toString(36).substring(2, 9)),
     name: user.name.trim(),
-    email: user.email.trim().toLowerCase(),
+    email: cleanEmail,
     password: user.password,
     plan: user.plan || 'pro',
-    role: user.role || 'member',
+    role: isMasterAdmin ? 'admin' : 'member',
     createdAt: existingIndex >= 0 ? users[existingIndex].createdAt : Date.now(),
-    expiresAt: user.expiresAt !== undefined ? user.expiresAt : null,
-    durationLabel: user.durationLabel || (user.expiresAt ? 'Custom' : 'Unlimited')
+    expiresAt: isMasterAdmin ? null : (user.expiresAt !== undefined ? user.expiresAt : null),
+    durationLabel: isMasterAdmin ? 'Unlimited / Owner' : (user.durationLabel || (user.expiresAt ? 'Custom' : 'Unlimited'))
   };
 
   if (existingIndex >= 0) {

@@ -122,16 +122,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
     }
 
+    const isMasterAdmin = cleanEmail === 'tenzinrey@gmail.com';
     const authUser: AuthUser = {
       id: matched.id,
       name: matched.name,
       email: matched.email,
       plan: matched.plan || 'pro',
-      role: matched.role || 'member',
+      role: isMasterAdmin ? 'admin' : 'member',
       provider: 'email',
       createdAt: matched.createdAt,
-      expiresAt: matched.expiresAt,
-      durationLabel: matched.durationLabel
+      expiresAt: isMasterAdmin ? null : matched.expiresAt,
+      durationLabel: isMasterAdmin ? 'Unlimited / Owner' : matched.durationLabel
     };
 
     setUser(authUser);

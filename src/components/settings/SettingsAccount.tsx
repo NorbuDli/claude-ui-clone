@@ -104,7 +104,9 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
     setTimeout(() => setCopiedOrgId(false), 2000);
   };
 
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.email?.toLowerCase() === 'tenzinrey@gmail.com';
+  const isAdmin = Boolean(
+    currentUser?.email && currentUser.email.trim().toLowerCase() === 'tenzinrey@gmail.com'
+  );
   const myExpiry = getExpiryInfo(currentUser?.expiresAt);
 
   return (
