@@ -13,6 +13,8 @@ import { CustomizeModal } from './components/CustomizeModal';
 import { SearchModal } from './components/SearchModal';
 import { useChat } from './context/ChatContext';
 import { useSettings } from './context/SettingsContext';
+import { useAuth } from './context/AuthContext';
+import { LoginView } from './components/LoginView';
 import { ActivePageView } from './types';
 import { ArrowDown, PanelLeftOpen } from 'lucide-react';
 
@@ -22,6 +24,7 @@ const CustomizeView = React.lazy(() =>
 );
 
 export const App: React.FC = () => {
+  const { isAuthenticated } = useAuth();
   const {
     activeConversation,
     activePageView,
@@ -43,6 +46,10 @@ export const App: React.FC = () => {
   const [previousPageView, setPreviousPageView] = useState<ActivePageView>('chat');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  if (!isAuthenticated) {
+    return <LoginView />;
+  }
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Handle window resize - auto-close sidebar on mobile

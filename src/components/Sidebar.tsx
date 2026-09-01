@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
 import { Conversation } from '../types';
 import { ClaudeProjectsIcon, ClaudeArtifactsIcon, ClaudeCustomizeIcon, ClaudeNewChatIcon, ClaudeCodeIcon } from './ClaudeIcons';
 
@@ -38,6 +39,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, onOpenSearch }) => {
+  const { user, logout } = useAuth();
   const {
     conversations,
     activeConversationId,
@@ -589,11 +591,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, onOpenSearch
             >
               <div className="flex items-center gap-2.5">
                 <div className="w-6 h-6 rounded-full bg-[#2B2A27] border border-[#3A3935] text-[#ECEBE7] flex items-center justify-center font-bold text-xs">
-                  {settings.userName ? settings.userName.charAt(0).toUpperCase() : 'N'}
+                  {user?.name ? user.name.charAt(0).toUpperCase() : settings.userName ? settings.userName.charAt(0).toUpperCase() : 'N'}
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="font-normal text-[13.5px] text-[#ECEBE7]">{settings.userName || 'Norbu'}</span>
-                  <span className="text-xs text-[#8C8A82]">· Pro</span>
+                  <span className="font-normal text-[13.5px] text-[#ECEBE7]">{user?.name || settings.userName || 'Norbu'}</span>
+                  <span className="text-xs text-[#8C8A82]">
+                    · {user?.plan ? (user.plan.charAt(0).toUpperCase() + user.plan.slice(1)) : 'Pro'}
+                  </span>
                   <ChevronDown className="w-3.5 h-3.5 text-[#8C8A82]" />
                 </div>
               </div>
@@ -642,7 +646,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, onOpenSearch
                 aria-label="Account menu"
               >
                 <div className="px-3.5 py-2 text-[11px] text-[#8C8A82] border-b border-[#262522] truncate">
-                  {settings.userEmail || 'norbu@example.com'}
+                  {user?.email || settings.userEmail || 'norbu@claude.ai'}
                 </div>
 
                 <div className="space-y-0.5 my-1">
@@ -736,9 +740,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, onOpenSearch
 
                 <button
                   onClick={() => {
-                    if (window.confirm('Are you sure you want to log out?')) {
-                      window.location.reload();
-                    }
+                    setIsProfileMenuOpen(false);
+                    logout();
                   }}
                   className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-[#23221F] text-left text-[#A5A39C] hover:text-red-400 transition-colors group"
                   role="menuitem"

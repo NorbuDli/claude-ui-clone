@@ -229,3 +229,15 @@ export interface Plugin {
   lastUpdated: string;
   icon?: string;
 }
+
+export type UserPlanTier = 'free' | 'pro' | 'max' | 'team' | 'enterprise';
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl?: string;
+  plan: UserPlanTier;
+  createdAt?: number;
+  provider?: 'google' | 'email' | 'guest';
+}
