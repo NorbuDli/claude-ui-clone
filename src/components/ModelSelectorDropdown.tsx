@@ -3,16 +3,19 @@ import {
   ChevronDown,
   ChevronRight,
   Check,
-  Info
+  Info,
+  Sparkles
 } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
 import { ThinkingEffort, ModelOption } from '../types';
 import { PRIMARY_MODELS, MORE_MODELS, ALL_MODELS } from '../services/mockData';
 
 export const ModelSelectorDropdown: React.FC = () => {
   const { selectedModel, setSelectedModel, setActivePageView } = useChat();
   const { settings, updateSettings } = useSettings();
+  const { user } = useAuth();
 
   const [isOpen, setIsOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<'effort' | 'more-models' | null>(null);
@@ -21,6 +24,24 @@ export const ModelSelectorDropdown: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const effortTimerRef = useRef<any>(null);
   const moreTimerRef = useRef<any>(null);
+
+  const isMaxTier = Boolean(
+    user?.plan === 'max' ||
+    user?.plan === 'team' ||
+    user?.plan === 'enterprise' ||
+    user?.email?.toLowerCase() === 'tenzinrey@gmail.com'
+  );
+  const isProTier = Boolean(isMaxTier || user?.plan === 'pro');
+
+  const isModelLocked = (model: ModelOption) => {
+    if (model.isFable || model.id === 'fable-5') {
+      return !isMaxTier;
+    }
+    if (model.isPro) {
+      return !isProTier;
+    }
+    return false;
+  };
 
   const currentModel = ALL_MODELS.find((m) => m.id === selectedModel) || PRIMARY_MODELS[2]; // default Sonnet 5
 
@@ -69,7 +90,7 @@ export const ModelSelectorDropdown: React.FC = () => {
   }, [isOpen]);
 
   const handleSelectModel = (model: ModelOption) => {
-    if (model.requiresUpgrade) {
+    if (isModelLocked(model)) {
       setActivePageView('upgrade');
       setIsOpen(false);
       return;
@@ -142,6 +163,7 @@ export const ModelSelectorDropdown: React.FC = () => {
           <div className="space-y-0.5">
             {PRIMARY_MODELS.map((model) => {
               const isSelected = selectedModel === model.id;
+              const locked = isModelLocked(model);
 
               return (
                 <div
@@ -158,11 +180,15 @@ export const ModelSelectorDropdown: React.FC = () => {
                       <span className="font-medium text-xs text-[#ECEBE7]">
                         {model.name}
                       </span>
-                      {model.isPro && (
+                      {model.isFable ? (
+                        <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-purple-950/70 border border-purple-800/60 text-purple-300">
+                          Max
+                        </span>
+                      ) : model.isPro ? (
                         <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-sky-950/70 border border-sky-800/60 text-sky-400">
                           Pro
                         </span>
-                      )}
+                      ) : null}
                     </div>
                     <p className="text-[11px] text-[#8C8A82] leading-tight">
                       {model.description}
@@ -171,7 +197,7 @@ export const ModelSelectorDropdown: React.FC = () => {
 
                   {/* Right Action: Checkmark or Upgrade Button */}
                   <div className="shrink-0 flex items-center">
-                    {model.requiresUpgrade ? (
+                    {locked ? (
                       <button
                         type="button"
                         onClick={handleUpgradeClick}
@@ -367,19 +393,26 @@ export const ModelSelectorDropdown: React.FC = () => {
             )}
           </div>
 
-          {/* FOOTER NOTICE (matching screenshot) */}
-          <div className="px-3 py-2 border-t border-[#262522] text-[11px] text-[#706E68] leading-tight">
-            Fable 5 is included in Max plans, or available with usage credits on Pro.{' '}
-            <span
-              onClick={() => {
-                setActivePageView('upgrade');
-                setIsOpen(false);
-              }}
-              className="text-[#8C8A82] hover:text-[#ECEBE7] underline cursor-pointer"
-            >
-              Learn more
-            </span>
-          </div>
+          {/* FOOTER NOTICE */}
+          {isMaxTier ? (
+            <div className="px-3 py-2 border-t border-[#262522] text-[11px] text-purple-300 flex items-center gap-1.5 font-medium">
+              <Sparkles className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+              <span>Max Plan Active — All models & Fable 5 unlocked</span>
+            </div>
+          ) : (
+            <div className="px-3 py-2 border-t border-[#262522] text-[11px] text-[#706E68] leading-tight">
+              Fable 5 is included in Max plans, or available with usage credits on Pro.{' '}
+              <span
+                onClick={() => {
+                  setActivePageView('upgrade');
+                  setIsOpen(false);
+                }}
+                className="text-[#8C8A82] hover:text-[#ECEBE7] underline cursor-pointer"
+              >
+                Learn more
+              </span>
+            </div>
+          )}
 
         </div>
       )}

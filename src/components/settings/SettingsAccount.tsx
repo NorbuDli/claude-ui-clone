@@ -256,7 +256,8 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
                     onChange={(e) => setNewPlan(e.target.value as UserPlanTier)}
                     className="w-full bg-[#141413] border border-[#2B2A27] focus:border-[#DA7756] rounded-xl px-3 py-2 text-xs text-[#ECEBE7] outline-none"
                   >
-                    <option value="pro">Pro Plan (Unlimited Claude 3.7)</option>
+                    <option value="max">Max Plan (All Models Unlocked + Fable 5)</option>
+                    <option value="pro">Pro Plan (Claude 3.7 & Opus 5)</option>
                     <option value="team">Team Plan</option>
                     <option value="free">Free Plan</option>
                   </select>
@@ -319,9 +320,11 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-[#ECEBE7] truncate">{acc.name}</span>
                     <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold uppercase ${
-                      acc.plan === 'pro' 
-                        ? 'bg-[#DA7756]/20 text-[#DA7756] border border-[#DA7756]/30' 
-                        : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                      acc.plan === 'max'
+                        ? 'bg-purple-950/80 text-purple-300 border border-purple-800/60 shadow-xs'
+                        : acc.plan === 'pro' 
+                          ? 'bg-[#DA7756]/20 text-[#DA7756] border border-[#DA7756]/30' 
+                          : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
                     }`}>
                       {acc.plan}
                     </span>
