@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Sparkles, ArrowRight, Lock, Mail, User, ShieldCheck } from 'lucide-react';
-import { ClaudeBurstIcon } from './ClaudeIcon';
+import claudeLogoSvg from '../assets/claude-logo.svg';
 
 export const LoginView: React.FC = () => {
   const { loginWithGoogle, loginWithEmail, signupWithEmail, isLoading } = useAuth();
@@ -42,9 +42,14 @@ export const LoginView: React.FC = () => {
       {/* Top Navbar */}
       <header className="px-6 py-5 flex items-center justify-between max-w-6xl mx-auto w-full">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#262420] border border-[#3A3833] flex items-center justify-center text-[#DA7756]">
-            <ClaudeBurstIcon size={20} color="#DA7756" />
-          </div>
+          <img
+            src={claudeLogoSvg}
+            alt="Claude"
+            width={24}
+            height={24}
+            className="w-6 h-6 object-contain shrink-0"
+            draggable={false}
+          />
           <span className="font-serif text-xl tracking-tight font-medium text-[#ECEBE7]">
             Claude
           </span>
