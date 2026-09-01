@@ -636,7 +636,7 @@ export const CustomizeView: React.FC = () => {
               </button>
 
               {isAddMenuOpen && (
-                <div className="absolute right-0 top-full mt-1.5 w-52 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute right-0 top-full mt-1.5 w-52 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs">
                   <button
                     onClick={() => {
                       setIsCreateSkillModalOpen(true);
@@ -919,7 +919,7 @@ export const CustomizeView: React.FC = () => {
 
                       {activeContextMenuId === item.id && (
                         <div
-                          className="absolute right-0 top-full mt-1 w-44 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
+                          className="absolute right-0 top-full mt-1 w-44 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button
