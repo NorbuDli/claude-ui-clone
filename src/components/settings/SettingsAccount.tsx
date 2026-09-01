@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Laptop, Check, Copy, UserPlus, Trash2, Key, Eye, EyeOff, ShieldCheck, Clock, Plus, Calendar, AlertTriangle } from 'lucide-react';
+import { Laptop, Check, Copy, UserPlus, Trash2, Key, Eye, EyeOff, ShieldCheck, Clock, Plus, Calendar, AlertTriangle, Cloud, RefreshCw } from 'lucide-react';
 import { UserSettings, ActivePageView, UserPlanTier } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { isSupabaseConfigured, saveSupabaseAuthorizedUser, fetchSupabaseAuthorizedUsers } from '../../services/supabase';
 
 interface SettingsTabProps {
   settings: UserSettings;
@@ -20,16 +21,36 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
   const [copiedOrgId, setCopiedOrgId] = useState(false);
   const [copiedAccountEmail, setCopiedAccountEmail] = useState<string | null>(null);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+  const [cloudSyncMsg, setCloudSyncMsg] = useState<string | null>(null);
 
   // New user form state
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newPlan, setNewPlan] = useState<UserPlanTier>('pro');
+  const [newPlan, setNewPlan] = useState<UserPlanTier>('max');
   const [newRole, setNewRole] = useState<'admin' | 'member'>('member');
   const [durationDays, setDurationDays] = useState<number>(30); // 30 days = 1 month default
   const [addError, setAddError] = useState<string | null>(null);
+
+  const handleManualCloudSync = async () => {
+    setIsSyncingCloud(true);
+    setCloudSyncMsg(null);
+    try {
+      let count = 0;
+      for (const u of authorizedUsers) {
+        const ok = await saveSupabaseAuthorizedUser(u);
+        if (ok) count++;
+      }
+      setCloudSyncMsg(`Successfully synced ${count} accounts to Supabase Cloud!`);
+      setTimeout(() => setCloudSyncMsg(null), 4000);
+    } catch (err: any) {
+      setCloudSyncMsg(`Sync notice: ${err.message || 'Check database connection'}`);
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
 
   const getExpiryInfo = (expiresAt: number | null | undefined) => {
     if (!expiresAt) return { isExpired: false, label: 'Unlimited / Never', daysLeft: null, dateStr: 'Never' };
@@ -192,14 +213,34 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
                 Create user logins with custom expiration (e.g. 1 month, 2 months). Only you (Admin) can see and manage this.
               </p>
             </div>
-            <button
-              onClick={() => setIsAddingUser(!isAddingUser)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#DA7756] hover:bg-[#C86545] text-white text-xs font-medium transition-colors shadow-sm"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>{isAddingUser ? 'Cancel' : 'Create User'}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleManualCloudSync}
+                disabled={isSyncingCloud}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#242320] hover:bg-[#2A2926] text-[#ECEBE7] text-xs font-medium border border-[#383632] transition-colors disabled:opacity-50"
+                title="Sync accounts to Supabase Cloud Database"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-sky-400 ${isSyncingCloud ? 'animate-spin' : ''}`} />
+                <span>{isSyncingCloud ? 'Syncing...' : 'Sync to Cloud'}</span>
+              </button>
+
+              <button
+                onClick={() => setIsAddingUser(!isAddingUser)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#DA7756] hover:bg-[#C86545] text-white text-xs font-medium transition-colors shadow-sm"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>{isAddingUser ? 'Cancel' : 'Create User'}</span>
+              </button>
+            </div>
           </div>
+
+          {cloudSyncMsg && (
+            <div className="p-2.5 rounded-xl bg-sky-950/50 border border-sky-800/60 text-sky-300 text-xs flex items-center gap-2">
+              <Cloud className="w-4 h-4 text-sky-400 shrink-0" />
+              <span>{cloudSyncMsg}</span>
+            </div>
+          )}
 
           {/* Add User Form */}
           {isAddingUser && (
