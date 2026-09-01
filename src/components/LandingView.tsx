@@ -3,6 +3,7 @@ import { ClaudeStarburst } from './ClaudeIcons';
 import { ChatInput } from './ChatInput';
 import { useSettings } from '../context/SettingsContext';
 import { useChat } from '../context/ChatContext';
+import { useAuth } from '../context/AuthContext';
 import { PROMPT_STARTERS } from '../services/mockData';
 import { Sparkles, ArrowRight, X, GraduationCap, PenLine, Code2, Coffee, Lightbulb, PanelLeftOpen } from 'lucide-react';
 
@@ -17,15 +18,16 @@ export const LandingView: React.FC<LandingViewProps> = ({
 }) => {
   const { settings } = useSettings();
   const { sendMessage, setActivePageView } = useChat();
+  const { user } = useAuth();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
+  const userName = user?.name || settings.userName || 'Norbu';
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
-    const name = settings.userName || 'Norbu';
-    if (hour < 12) return `Good morning, ${name}`;
-    if (hour < 17) return `Afternoon, ${name}`;
-    return `Evening, ${name}`;
-  }, [settings.userName]);
+    if (hour < 12) return `Good morning, ${userName}`;
+    if (hour < 17) return `Good afternoon, ${userName}`;
+    return `Good evening, ${userName}`;
+  }, [userName]);
 
   const categories = [
     { id: 'learn', label: 'Learn', icon: GraduationCap },
@@ -65,8 +67,12 @@ export const LandingView: React.FC<LandingViewProps> = ({
           onClick={() => setActivePageView('upgrade')}
           className="flex items-center gap-1.5 text-xs text-[#8C8A82] hover:text-[#ECEBE7] transition-colors"
         >
-          <span className="text-[#ECEBE7] font-medium">Pro plan</span>
-          <span className="text-[#3B82F6] hover:underline font-normal">· Upgrade</span>
+          <span className="text-[#ECEBE7] font-medium">
+            {user?.plan === 'max' ? 'Max plan' : user?.plan === 'team' ? 'Team plan' : user?.plan === 'free' ? 'Free plan' : 'Pro plan'}
+          </span>
+          {user?.plan !== 'max' && (
+            <span className="text-[#3B82F6] hover:underline font-normal">· Upgrade</span>
+          )}
         </button>
       </div>
 

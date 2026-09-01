@@ -246,8 +246,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         accept="image/*,.js,.jsx,.ts,.tsx,.html,.css,.json,.py,.java,.c,.cpp,.rs,.go,.md,.txt,.pdf,.csv"
       />
 
-      {/* Main Input Box Card (matching screenshot) */}
-      <div className="bg-[#1C1B19] rounded-2xl border border-[#2B2A27] hover:border-[#383733] focus-within:border-[#42413C] transition-all shadow-lg">
+      {/* Main Input Box Card (matching Claude exact geometry) */}
+      <div className="bg-[#1F1E1C] rounded-[22px] border border-[#2E2D2A] hover:border-[#383733] focus-within:border-[#4A4843] transition-all shadow-md">
         
         {/* Attachment Previews */}
         {attachments.length > 0 && (
@@ -282,7 +282,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         )}
 
         {/* Text Area */}
-        <div className="p-3.5 pb-1.5">
+        <div className="px-4 pt-3.5 pb-1">
           <textarea
             ref={textareaRef}
             rows={1}
@@ -290,12 +290,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={forcePlaceholder || (hasMessages ? 'Write a message...' : 'How can I help you today?')}
-            className="w-full bg-transparent text-[#ECEBE7] placeholder-[#706E68] text-sm resize-none focus:outline-none leading-relaxed font-sans max-h-[200px]"
+            className="w-full bg-transparent text-[#ECEBE7] placeholder-[#706E68] text-[14.5px] resize-none focus:outline-none leading-relaxed font-sans max-h-[220px]"
           />
         </div>
 
-        {/* Bottom Action Bar */}
-        <div className="flex items-center justify-between px-3 py-2 border-t border-[#242320]">
+        {/* Bottom Action Bar (Seamless without harsh dividing border) */}
+        <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
           
           {/* Left Actions: + and Mode toggle */}
           <div className="flex items-center gap-2 relative">
