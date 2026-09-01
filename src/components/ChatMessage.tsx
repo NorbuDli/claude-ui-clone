@@ -210,7 +210,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isLast = fals
 
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editedContent.trim() && editedContent !== message.content) {
+    if (editedContent.trim()) {
       editUserMessage(message.id, editedContent.trim());
     }
     setIsEditing(false);

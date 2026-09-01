@@ -381,6 +381,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userIdx = conv.messages.findIndex((m) => m.id === userMessageId);
     if (userIdx === -1) return;
 
+    setIsStreaming(true);
+
     const existingUserMsg = conv.messages[userIdx];
     const updatedUserMsg: Message = { ...existingUserMsg, content: newContent };
 
@@ -390,7 +392,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role: 'assistant',
       content: '',
       isThinking: true,
-      thinkingStatus: 'Reasoning',
+      thinkingStatus: 'Thinking',
       createdAt: Date.now(),
       isStreaming: true
     };
