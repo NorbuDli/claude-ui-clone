@@ -1068,8 +1068,8 @@ ${skillInstr || '1. Parse the user request thoroughly.\n2. Formulate clear step-
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-[#1C1B19] border border-[#2B2A27] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-4 text-xs animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+      <div className="bg-[#1C1B19] border border-[#2B2A27] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-4 text-xs">
         <div className="flex items-center justify-between pb-3 border-b border-[#262522]">
           <h2 className="text-sm font-semibold text-[#ECEBE7]">Create New Skill</h2>
           <button onClick={onClose} className="text-[#8C8A82] hover:text-[#ECEBE7]">
@@ -1208,8 +1208,8 @@ Follow the rules defined in this uploaded skill config.`;
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-[#1C1B19] border border-[#2B2A27] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-4 text-xs animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+      <div className="bg-[#1C1B19] border border-[#2B2A27] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-4 text-xs">
         <div className="flex items-center justify-between pb-3 border-b border-[#262522]">
           <h2 className="text-sm font-semibold text-[#ECEBE7]">Upload Skill (.md / .json / .yaml)</h2>
           <button onClick={onClose} className="text-[#8C8A82] hover:text-[#ECEBE7]">
@@ -1281,8 +1281,8 @@ interface ItemDetailDialogProps {
 
 const ItemDetailDialog: React.FC<ItemDetailDialogProps> = ({ item, onClose, onToggle }) => {
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-[#1C1B19] border border-[#2B2A27] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-4 text-xs animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+      <div className="bg-[#1C1B19] border border-[#2B2A27] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-4 text-xs">
         <div className="flex items-center justify-between pb-3 border-b border-[#262522]">
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm font-semibold text-[#ECEBE7]">{item.name}</span>
@@ -1347,8 +1347,8 @@ interface DeleteConfirmDialogProps {
 
 const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({ item, onClose, onConfirm }) => {
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-[#1C1B19] border border-[#2B2A27] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4 text-xs animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+      <div className="bg-[#1C1B19] border border-[#2B2A27] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4 text-xs">
         <div className="flex items-center gap-3 text-red-400">
           <AlertCircle className="w-5 h-5 shrink-0" />
           <h2 className="text-sm font-semibold text-[#ECEBE7]">Delete {item.name}?</h2>
@@ -1379,8 +1379,8 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({ item, onClose
 
 const HelpGuideDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-[#1C1B19] border border-[#2B2A27] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-4 text-xs animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+      <div className="bg-[#1C1B19] border border-[#2B2A27] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-4 text-xs">
         <div className="flex items-center justify-between pb-3 border-b border-[#262522]">
           <h2 className="text-sm font-semibold text-[#ECEBE7]">About Customizations</h2>
           <button onClick={onClose} className="text-[#8C8A82] hover:text-[#ECEBE7]">

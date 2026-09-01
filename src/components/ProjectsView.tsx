@@ -365,7 +365,7 @@ export const ProjectsView: React.FC = () => {
               </button>
 
               {isProjectOptionsOpen && (
-                <div className="absolute right-0 top-full mt-1 w-44 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute right-0 top-full mt-1 w-44 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs">
                   <button
                     onClick={() => {
                       openEditModal(currentProject);
@@ -553,7 +553,7 @@ export const ProjectsView: React.FC = () => {
 
                                     {/* Submenu for target projects */}
                                     {isChangeProjectSubmenuOpen === conv.id && (
-                                      <div className="absolute right-full top-0 mr-1.5 w-48 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
+                                      <div className="absolute right-full top-0 mr-1.5 w-48 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs">
                                         <div className="px-2.5 py-1.5 text-[11px] text-[#706E68] border-b border-[#262522]">Move to project</div>
                                         <div className="max-h-48 overflow-y-auto space-y-0.5 py-1">
                                           {projects.filter(p => p.id !== currentProject.id).map(p => (
@@ -761,7 +761,7 @@ export const ProjectsView: React.FC = () => {
 
         {/* File Preview Modal */}
         {previewFile && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
             <div
               className="w-full max-w-2xl bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] text-xs"
               onClick={(e) => e.stopPropagation()}
@@ -791,7 +791,7 @@ export const ProjectsView: React.FC = () => {
 
         {/* Edit Project Modal */}
         {isEditProjectModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75">
             <div
               className="w-full max-w-md bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4 text-xs"
               onClick={(e) => e.stopPropagation()}
@@ -856,13 +856,13 @@ export const ProjectsView: React.FC = () => {
           >
             {/* Dark Backdrop */}
             <div
-              className="fixed inset-0 bg-black/75 backdrop-blur-xs animate-in fade-in duration-150"
+              className="fixed inset-0 bg-black/75"
               onClick={() => setIsEditingInstructions(false)}
             />
 
             {/* Dialog Card (matching Claude screenshot) */}
             <div
-              className="relative z-10 w-full max-w-2xl bg-[#1E1E1C] border border-[#2E2E2B] rounded-2xl shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-150 overflow-hidden select-text"
+              className="relative z-10 w-full max-w-2xl bg-[#1E1E1C] border border-[#2E2E2B] rounded-2xl shadow-2xl flex flex-col overflow-hidden select-text"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
@@ -935,7 +935,7 @@ export const ProjectsView: React.FC = () => {
         <div className="flex items-center gap-2.5">
           {/* Search button / input */}
           {isSearchOpen ? (
-            <div className="relative w-52 animate-in fade-in zoom-in-95 duration-100">
+            <div className="relative w-52">
               <Search className="w-3.5 h-3.5 text-[#7E7C76] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
@@ -977,7 +977,7 @@ export const ProjectsView: React.FC = () => {
             </button>
 
             {isSortMenuOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-44 bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl p-1.5 z-50 text-xs text-[#ECEBE7] animate-in fade-in zoom-in-95 duration-100 space-y-0.5 select-none">
+              <div className="absolute right-0 top-full mt-1.5 w-44 bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl p-1.5 z-50 text-xs text-[#ECEBE7] space-y-0.5 select-none">
                 {(['last-updated', 'date-created', 'alphabetical', 'group-type'] as SortOption[]).map((opt) => (
                   <button
                     key={opt}
