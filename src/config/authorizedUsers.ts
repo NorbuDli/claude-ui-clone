@@ -2,28 +2,18 @@ import { AuthorizedAccount } from '../types';
 
 export const DEFAULT_AUTHORIZED_USERS: AuthorizedAccount[] = [
   {
-    id: 'usr_admin_norbu',
-    name: 'Norbu',
-    email: 'norbu@claude.ai',
-    password: 'password123',
+    id: 'usr_admin_tenzin',
+    name: 'Tenzin',
+    email: 'tenzinrey@gmail.com',
+    password: 'Norbut@te26',
     plan: 'pro',
     role: 'admin',
     createdAt: 1700000000000,
     expiresAt: null,
-    durationLabel: 'Unlimited'
-  },
-  {
-    id: 'usr_admin_default',
-    name: 'Admin',
-    email: 'admin@claude.ai',
-    password: 'adminpassword',
-    plan: 'pro',
-    role: 'admin',
-    createdAt: 1700000000000,
-    expiresAt: null,
-    durationLabel: 'Unlimited'
+    durationLabel: 'Unlimited / Owner'
   }
 ];
+
 
 const STORAGE_KEY = 'claude_authorized_accounts_v1';
 

@@ -104,141 +104,208 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
     setTimeout(() => setCopiedOrgId(false), 2000);
   };
 
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.email?.toLowerCase() === 'tenzinrey@gmail.com';
+  const myExpiry = getExpiryInfo(currentUser?.expiresAt);
+
   return (
     <div className="space-y-8 max-w-xl">
       <div>
-        <h3 className="text-sm font-semibold text-[#ECEBE7] mb-1">Account & Access Control</h3>
-        <p className="text-xs text-[#8C8A82]">Manage credentials, authorized user logins, duration expiration, and private access.</p>
+        <h3 className="text-sm font-semibold text-[#ECEBE7] mb-1">
+          {isAdmin ? 'Account & Access Control (Admin)' : 'Account & Subscription'}
+        </h3>
+        <p className="text-xs text-[#8C8A82]">
+          {isAdmin 
+            ? 'Manage credentials, authorized user logins, duration expiration, and private access.'
+            : 'View your active plan, access expiration date, and session security.'}
+        </p>
       </div>
 
-      {/* ─── AUTHORIZED ACCOUNTS & PASSWORDS (ADMIN) ─── */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-xs font-semibold text-[#ECEBE7] flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-[#DA7756]" />
-              <span>Authorized User Accounts & Access Duration</span>
-            </h4>
-            <p className="text-[11px] text-[#8C8A82]">
-              Create user logins with custom expiration (e.g. 1 month, 2 months). When expired, access is blocked automatically.
-            </p>
-          </div>
-          <button
-            onClick={() => setIsAddingUser(!isAddingUser)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#DA7756] hover:bg-[#C86545] text-white text-xs font-medium transition-colors shadow-sm"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>{isAddingUser ? 'Cancel' : 'Create User'}</span>
-          </button>
-        </div>
-
-        {/* Add User Form */}
-        {isAddingUser && (
-          <form onSubmit={handleAddUser} className="p-4 rounded-2xl bg-[#1C1B19] border border-[#DA7756]/40 space-y-3 animate-in fade-in duration-200">
-            <div className="text-xs font-medium text-[#ECEBE7] flex items-center gap-1">
-              <Key className="w-3.5 h-3.5 text-[#DA7756]" />
-              <span>Create User Login & Access Duration</span>
+      {/* ─── MEMBER VIEW: MY SUBSCRIPTION & ACCESS DETAILS ─── */}
+      {!isAdmin && (
+        <div className="p-4 rounded-2xl bg-[#1C1B19] border border-[#2B2A27] space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <span className="text-[11px] font-semibold text-[#8C8A82] uppercase tracking-wider">
+                My Subscription
+              </span>
+              <div className="text-sm font-medium text-[#ECEBE7] flex items-center gap-2">
+                <span>{currentUser?.name || 'Member'}</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded font-semibold uppercase ${
+                  currentUser?.plan === 'pro' 
+                    ? 'bg-[#DA7756]/20 text-[#DA7756] border border-[#DA7756]/30' 
+                    : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                }`}>
+                  {currentUser?.plan?.toUpperCase() || 'PRO'} PLAN
+                </span>
+              </div>
             </div>
 
-            {addError && (
-              <div className="p-2.5 rounded-xl bg-red-950/40 border border-red-800/50 text-red-300 text-xs">
-                {addError}
-              </div>
+            {myExpiry.isExpired ? (
+              <span className="text-xs px-2.5 py-1 rounded-lg bg-red-950/70 text-red-300 border border-red-800/60 font-semibold flex items-center gap-1">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+                <span>EXPIRED</span>
+              </span>
+            ) : myExpiry.daysLeft !== null ? (
+              <span className="text-xs px-2.5 py-1 rounded-lg bg-emerald-950/60 text-emerald-300 border border-emerald-800/40 font-medium flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{myExpiry.daysLeft} days remaining</span>
+              </span>
+            ) : (
+              <span className="text-xs px-2.5 py-1 rounded-lg bg-emerald-950/60 text-emerald-300 border border-emerald-800/40 font-medium">
+                Active (Unlimited)
+              </span>
             )}
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[11px] text-[#8C8A82]">Full Name</label>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. Alex"
-                  className="w-full bg-[#141413] border border-[#2B2A27] focus:border-[#DA7756] rounded-xl px-3 py-2 text-xs text-[#ECEBE7] outline-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] text-[#8C8A82]">Email Address</label>
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="alex@company.com"
-                  className="w-full bg-[#141413] border border-[#2B2A27] focus:border-[#DA7756] rounded-xl px-3 py-2 text-xs text-[#ECEBE7] outline-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] text-[#8C8A82]">Password</label>
-                <input
-                  type="text"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="SecretPass123"
-                  className="w-full bg-[#141413] border border-[#2B2A27] focus:border-[#DA7756] rounded-xl px-3 py-2 text-xs text-[#ECEBE7] outline-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] text-[#8C8A82]">Plan Tier</label>
-                <select
-                  value={newPlan}
-                  onChange={(e) => setNewPlan(e.target.value as UserPlanTier)}
-                  className="w-full bg-[#141413] border border-[#2B2A27] focus:border-[#DA7756] rounded-xl px-3 py-2 text-xs text-[#ECEBE7] outline-none"
-                >
-                  <option value="pro">Pro Plan (Unlimited Claude 3.7)</option>
-                  <option value="team">Team Plan</option>
-                  <option value="free">Free Plan</option>
-                </select>
-              </div>
-
-              <div className="space-y-1 sm:col-span-2">
-                <label className="text-[11px] text-[#8C8A82] flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-[#DA7756]" />
-                  <span>Access Duration (Auto-Expires After)</span>
-                </label>
-                <select
-                  value={durationDays}
-                  onChange={(e) => setDurationDays(Number(e.target.value))}
-                  className="w-full bg-[#141413] border border-[#2B2A27] focus:border-[#DA7756] rounded-xl px-3 py-2 text-xs text-[#ECEBE7] outline-none"
-                >
-                  <option value={30}>1 Month (30 Days)</option>
-                  <option value={60}>2 Months (60 Days)</option>
-                  <option value={90}>3 Months (90 Days)</option>
-                  <option value={180}>6 Months (180 Days)</option>
-                  <option value={365}>1 Year (365 Days)</option>
-                  <option value={7}>7 Days (Trial)</option>
-                  <option value={0}>Unlimited / Never Expire</option>
-                </select>
-                <p className="text-[10px] text-[#706E68]">
-                  {durationDays > 0 
-                    ? `Account will automatically expire on ${new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.` 
-                    : 'Account will remain active forever until manually deleted.'}
-                </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#262522] text-xs">
+            <div>
+              <span className="text-[11px] text-[#706E68]">Email</span>
+              <div className="font-mono text-[#ECEBE7] text-[11px]">{currentUser?.email}</div>
+            </div>
+            <div>
+              <span className="text-[11px] text-[#706E68]">Valid Until</span>
+              <div className="text-[#ECEBE7] text-[11px] flex items-center gap-1 font-medium">
+                <Calendar className="w-3.5 h-3.5 text-[#DA7756]" />
+                <span>{myExpiry.dateStr}</span>
               </div>
             </div>
+          </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsAddingUser(false)}
-                className="px-3 py-1.5 rounded-xl bg-[#242320] hover:bg-[#2A2926] text-xs text-[#8C8A82] hover:text-[#ECEBE7] transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-1.5 rounded-xl bg-[#ECEBE7] hover:bg-white text-black text-xs font-medium transition-colors shadow-sm"
-              >
-                Save Account & Set Expiration
-              </button>
+          <p className="text-[11px] text-[#706E68] pt-1">
+            Need to extend your duration or have billing questions? Contact your workspace administrator.
+          </p>
+        </div>
+      )}
+
+      {/* ─── ADMIN VIEW: AUTHORIZED ACCOUNTS & PASSWORDS ─── */}
+      {isAdmin && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-xs font-semibold text-[#ECEBE7] flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-[#DA7756]" />
+                <span>Authorized User Accounts & Access Duration</span>
+              </h4>
+              <p className="text-[11px] text-[#8C8A82]">
+                Create user logins with custom expiration (e.g. 1 month, 2 months). Only you (Admin) can see and manage this.
+              </p>
             </div>
-          </form>
-        )}
+            <button
+              onClick={() => setIsAddingUser(!isAddingUser)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#DA7756] hover:bg-[#C86545] text-white text-xs font-medium transition-colors shadow-sm"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>{isAddingUser ? 'Cancel' : 'Create User'}</span>
+            </button>
+          </div>
 
-        {/* List of Authorized Users */}
-        <div className="rounded-2xl bg-[#1C1B19] border border-[#2B2A27] divide-y divide-[#262522] overflow-hidden">
+          {/* Add User Form */}
+          {isAddingUser && (
+            <form onSubmit={handleAddUser} className="p-4 rounded-2xl bg-[#1C1B19] border border-[#DA7756]/40 space-y-3 animate-in fade-in duration-200">
+              <div className="text-xs font-medium text-[#ECEBE7] flex items-center gap-1">
+                <Key className="w-3.5 h-3.5 text-[#DA7756]" />
+                <span>Create User Login & Access Duration</span>
+              </div>
+
+              {addError && (
+                <div className="p-2.5 rounded-xl bg-red-950/40 border border-red-800/50 text-red-300 text-xs">
+                  {addError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] text-[#8C8A82]">Full Name</label>
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="e.g. Alex"
+                    className="w-full bg-[#141413] border border-[#2B2A27] focus:border-[#DA7756] rounded-xl px-3 py-2 text-xs text-[#ECEBE7] outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] text-[#8C8A82]">Email Address</label>
+                  <input
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    placeholder="alex@company.com"
+                    className="w-full bg-[#141413] border border-[#2B2A27] focus:border-[#DA7756] rounded-xl px-3 py-2 text-xs text-[#ECEBE7] outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] text-[#8C8A82]">Password</label>
+                  <input
+                    type="text"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="SecretPass123"
+                    className="w-full bg-[#141413] border border-[#2B2A27] focus:border-[#DA7756] rounded-xl px-3 py-2 text-xs text-[#ECEBE7] outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] text-[#8C8A82]">Plan Tier</label>
+                  <select
+                    value={newPlan}
+                    onChange={(e) => setNewPlan(e.target.value as UserPlanTier)}
+                    className="w-full bg-[#141413] border border-[#2B2A27] focus:border-[#DA7756] rounded-xl px-3 py-2 text-xs text-[#ECEBE7] outline-none"
+                  >
+                    <option value="pro">Pro Plan (Unlimited Claude 3.7)</option>
+                    <option value="team">Team Plan</option>
+                    <option value="free">Free Plan</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="text-[11px] text-[#8C8A82] flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-[#DA7756]" />
+                    <span>Access Duration (Auto-Expires After)</span>
+                  </label>
+                  <select
+                    value={durationDays}
+                    onChange={(e) => setDurationDays(Number(e.target.value))}
+                    className="w-full bg-[#141413] border border-[#2B2A27] focus:border-[#DA7756] rounded-xl px-3 py-2 text-xs text-[#ECEBE7] outline-none"
+                  >
+                    <option value={30}>1 Month (30 Days)</option>
+                    <option value={60}>2 Months (60 Days)</option>
+                    <option value={90}>3 Months (90 Days)</option>
+                    <option value={180}>6 Months (180 Days)</option>
+                    <option value={365}>1 Year (365 Days)</option>
+                    <option value={7}>7 Days (Trial)</option>
+                    <option value={0}>Unlimited / Never Expire</option>
+                  </select>
+                  <p className="text-[10px] text-[#706E68]">
+                    {durationDays > 0 
+                      ? `Account will automatically expire on ${new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.` 
+                      : 'Account will remain active forever until manually deleted.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingUser(false)}
+                  className="px-3 py-1.5 rounded-xl bg-[#242320] hover:bg-[#2A2926] text-xs text-[#8C8A82] hover:text-[#ECEBE7] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-xl bg-[#ECEBE7] hover:bg-white text-black text-xs font-medium transition-colors shadow-sm"
+                >
+                  Save Account & Set Expiration
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* List of Authorized Users */}
+          <div className="rounded-2xl bg-[#1C1B19] border border-[#2B2A27] divide-y divide-[#262522] overflow-hidden">
           {authorizedUsers.map((acc) => {
             const isPassVisible = showPasswords[acc.id];
             const isCopied = copiedAccountEmail === acc.email;
@@ -326,7 +393,7 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
                     {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
 
-                  {acc.email !== 'norbu@claude.ai' && (
+                  {acc.email !== 'tenzinrey@gmail.com' && (
                     <button
                       onClick={() => {
                         if (window.confirm(`Delete authorized user ${acc.email}?`)) {
@@ -345,6 +412,7 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
           })}
         </div>
       </div>
+    )}
 
       <div className="space-y-4">
         <div className="flex items-center justify-between p-4 rounded-2xl bg-[#1C1B19] border border-[#2B2A27]">

@@ -70,9 +70,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const adminAcc = accounts.find((a) => a.role === 'admin') || accounts[0];
 
     const googleUser: AuthUser = {
-      id: adminAcc?.id || 'usr_g_admin',
-      name: adminAcc?.name || 'Norbu',
-      email: adminAcc?.email || 'norbu@claude.ai',
+      id: adminAcc?.id || 'usr_admin_tenzin',
+      name: adminAcc?.name || 'Tenzin',
+      email: adminAcc?.email || 'tenzinrey@gmail.com',
       plan: adminAcc?.plan || 'pro',
       role: 'admin',
       provider: 'google',
