@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Sparkles, ArrowRight, Lock, Mail, User, ShieldCheck } from 'lucide-react';
-import { ClaudeProjectsIcon } from './ClaudeIcons';
+import { ClaudeBurstIcon } from './ClaudeIcon';
 
 export const LoginView: React.FC = () => {
-  const { loginWithGoogle, loginWithEmail, signupWithEmail, quickLoginAs, isLoading } = useAuth();
+  const { loginWithGoogle, loginWithEmail, signupWithEmail, isLoading } = useAuth();
 
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
@@ -43,7 +43,7 @@ export const LoginView: React.FC = () => {
       <header className="px-6 py-5 flex items-center justify-between max-w-6xl mx-auto w-full">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-[#262420] border border-[#3A3833] flex items-center justify-center text-[#DA7756]">
-            <ClaudeProjectsIcon className="w-5 h-5 fill-current" />
+            <ClaudeBurstIcon size={20} color="#DA7756" />
           </div>
           <span className="font-serif text-xl tracking-tight font-medium text-[#ECEBE7]">
             Claude
@@ -190,56 +190,6 @@ export const LoginView: React.FC = () => {
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
-
-          {/* Quick Demo Test Logins */}
-          <div className="pt-3 border-t border-[#262522] space-y-2">
-            <span className="text-[10px] font-semibold tracking-wider text-[#7E7C76] uppercase block text-center">
-              ⚡ Quick Demo Profiles
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  quickLoginAs({
-                    id: 'usr_norbu',
-                    name: 'Norbu',
-                    email: 'norbu@claude.ai',
-                    plan: 'pro'
-                  })
-                }
-                className="p-2 rounded-xl bg-[#22211E] hover:bg-[#2A2925] border border-[#2E2D2A] text-left transition-colors group"
-              >
-                <div className="text-xs font-medium text-[#ECEBE7] flex items-center justify-between">
-                  <span>Norbu</span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#DA7756]/20 text-[#DA7756] font-semibold border border-[#DA7756]/30">
-                    PRO
-                  </span>
-                </div>
-                <div className="text-[10px] text-[#7E7C76] truncate">norbu@claude.ai</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  quickLoginAs({
-                    id: 'usr_guest',
-                    name: 'Guest User',
-                    email: 'guest@claude.ai',
-                    plan: 'free'
-                  })
-                }
-                className="p-2 rounded-xl bg-[#22211E] hover:bg-[#2A2925] border border-[#2E2D2A] text-left transition-colors group"
-              >
-                <div className="text-xs font-medium text-[#ECEBE7] flex items-center justify-between">
-                  <span>Guest User</span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-neutral-800 text-neutral-400 font-semibold border border-neutral-700">
-                    FREE
-                  </span>
-                </div>
-                <div className="text-[10px] text-[#7E7C76] truncate">guest@claude.ai</div>
-              </button>
-            </div>
-          </div>
         </div>
       </main>
 
