@@ -15,6 +15,7 @@ import { useChat } from './context/ChatContext';
 import { useSettings } from './context/SettingsContext';
 import { ActivePageView } from './types';
 import { ArrowDown, PanelLeftOpen } from 'lucide-react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // Lazy load CustomizeView — it's a large component
 const CustomizeView = React.lazy(() =>
@@ -235,6 +236,9 @@ export const App: React.FC = () => {
 
       {/* Settings Modal */}
       <CustomizeModal />
+
+      {/* Vercel Speed Insights */}
+      <SpeedInsights />
     </div>
   );
 };
