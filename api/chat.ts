@@ -21,19 +21,19 @@ interface ChatRequestPayload {
 }
 
 const MODEL_MAP: Record<string, string> = {
-  'fable-5': 'deepseek-reasoner',
-  'opus-5': 'deepseek-reasoner',
-  'sonnet-5': 'deepseek-chat',
-  'haiku-4.5': 'deepseek-chat',
-  'opus-4.8': 'deepseek-reasoner',
-  'opus-4.7': 'deepseek-reasoner',
-  'opus-4.6': 'deepseek-reasoner',
-  'opus-3': 'deepseek-chat',
-  'sonnet-4.5': 'deepseek-chat',
-  'haiku-3.5': 'deepseek-chat',
-  'claude-3-5-sonnet': 'deepseek-chat',
-  'claude-3-opus': 'deepseek-reasoner',
-  'standard': 'deepseek-chat'
+  'fable-5': 'deepseek-v4-flash',
+  'opus-5': 'deepseek-v4-flash',
+  'sonnet-5': 'deepseek-v4-flash',
+  'haiku-4.5': 'deepseek-v4-flash',
+  'opus-4.8': 'deepseek-v4-flash',
+  'opus-4.7': 'deepseek-v4-flash',
+  'opus-4.6': 'deepseek-v4-flash',
+  'opus-3': 'deepseek-v4-flash',
+  'sonnet-4.5': 'deepseek-v4-flash',
+  'haiku-3.5': 'deepseek-v4-flash',
+  'claude-3-5-sonnet': 'deepseek-v4-flash',
+  'claude-3-opus': 'deepseek-v4-flash',
+  'standard': 'deepseek-v4-flash'
 };
 
 export default async function handler(req: Request) {
@@ -87,7 +87,15 @@ export default async function handler(req: Request) {
        'https://api.deepseek.com/v1').trim();
 
     const requestedProfile = payload.profile || 'standard';
-    const backendModel = process.env.API_MODEL?.trim() || MODEL_MAP[requestedProfile] || 'deepseek-chat';
+
+    // Check if any message contains image attachments
+    const hasImages = (payload.messages || []).some(
+      (m) => m.attachments && m.attachments.some((a) => a.dataUrl && a.dataUrl.startsWith('data:image/'))
+    );
+
+    const backendModel = hasImages
+      ? (process.env.API_VISION_MODEL || process.env.DEEPSEEK_VISION_MODEL || process.env.API_MODEL || 'deepseek-v4-flash-vision-exp')
+      : (process.env.API_MODEL || process.env.DEEPSEEK_MODEL || MODEL_MAP[requestedProfile] || 'deepseek-v4-flash');
 
     // Start background processing
     (async () => {
@@ -116,22 +124,54 @@ Provide a brief, helpful explanation in your chat text, and put the full impleme
           for (const msg of payload.messages || []) {
             if (msg.role === 'assistant' && !msg.content) continue;
 
-            let textContent = '';
-            if (msg.attachments && msg.attachments.length > 0) {
-              for (const att of msg.attachments) {
-                if (att.textContent) {
-                  textContent += `[Attached File: ${att.name}]\n\`\`\`\n${att.textContent}\n\`\`\`\n\n`;
+            const hasMsgImages = msg.attachments && msg.attachments.some((a) => a.dataUrl && a.dataUrl.startsWith('data:image/'));
+
+            if (hasMsgImages) {
+              const contentParts: any[] = [];
+
+              for (const att of msg.attachments || []) {
+                if (att.dataUrl && att.dataUrl.startsWith('data:image/')) {
+                  contentParts.push({
+                    type: 'image_url',
+                    image_url: { url: att.dataUrl }
+                  });
+                } else if (att.textContent) {
+                  contentParts.push({
+                    type: 'text',
+                    text: `[Attached File: ${att.name}]\n\`\`\`\n${att.textContent}\n\`\`\``
+                  });
                 }
               }
+
+              if (msg.content) {
+                contentParts.push({
+                  type: 'text',
+                  text: msg.content
+                });
+              }
+
+              formattedMessages.push({
+                role: msg.role,
+                content: contentParts
+              });
+            } else {
+              let textContent = '';
+              if (msg.attachments && msg.attachments.length > 0) {
+                for (const att of msg.attachments) {
+                  if (att.textContent) {
+                    textContent += `[Attached File: ${att.name}]\n\`\`\`\n${att.textContent}\n\`\`\`\n\n`;
+                  }
+                }
+              }
+
+              if (msg.content) textContent += msg.content;
+              if (!textContent.trim() && msg.role === 'assistant') continue;
+
+              formattedMessages.push({
+                role: msg.role,
+                content: textContent.trim() || msg.content || ' '
+              });
             }
-
-            if (msg.content) textContent += msg.content;
-            if (!textContent.trim() && msg.role === 'assistant') continue;
-
-            formattedMessages.push({
-              role: msg.role,
-              content: textContent.trim() || msg.content || ' '
-            });
           }
 
           let cleanBase = rawBaseUrl.replace(/\/+$/, '');
@@ -198,19 +238,33 @@ Provide a brief, helpful explanation in your chat text, and put the full impleme
             await writeChunk('done', {});
           }
         } else {
-          // Fallback demo response if no API key is provided
+          // Fallback demo response if no API key is configured yet
           const lastMsg = payload.messages?.[payload.messages.length - 1];
           const prompt = lastMsg?.content || 'Hello';
+          const attachedImage = lastMsg?.attachments?.find((a) => a.dataUrl && a.dataUrl.startsWith('data:image/'));
 
-          await writeChunk('thinking', { delta: `Analyzing prompt: "${prompt}"...\nSynthesizing response with Claude editorial precision...\n` });
+          if (attachedImage) {
+            await writeChunk('thinking', { delta: `Processing attached image: "${attachedImage.name}"...\nInspecting pixel dimensions and visual elements...\n` });
 
-          const demoResponse = `I received your message: **"${prompt}"**.\n\nI am Claude, running on the **${requestedProfile}** model profile.\n\n### Everything is connected and working!\n- **Live Chat Stream**: Active and healthy.\n- **Artifact Engine**: Ready to render interactive React/HTML widgets.\n- **Supabase Cloud Sync**: Synchronizing your users and projects.\n\nTo connect live OpenAI/DeepSeek models, add \`API_KEY\` in your **Vercel Project Settings $\\rightarrow$ Environment Variables**. How can I help you today?`;
+            const demoResponse = `I have received your uploaded image **"${attachedImage.name}"**!\n\nTo enable full real-time visual analysis of the image, please add your vision API credentials in **Vercel Project Settings $\\rightarrow$ Environment Variables**:\n- \`API_KEY\` = your API key\n- \`API_BASE_URL\` = your endpoint (e.g. \`https://api.b.ai/v1\`)\n- \`API_VISION_MODEL\` = \`deepseek-v4-flash-vision-exp\` (or \`gpt-4o\`)`;
 
-          const words = demoResponse.split(' ');
-          for (let i = 0; i < words.length; i++) {
-            const chunk = (i === 0 ? '' : ' ') + words[i];
-            await writeChunk('text', { delta: chunk });
-            await new Promise((r) => setTimeout(r, 18));
+            const words = demoResponse.split(' ');
+            for (let i = 0; i < words.length; i++) {
+              const chunk = (i === 0 ? '' : ' ') + words[i];
+              await writeChunk('text', { delta: chunk });
+              await new Promise((r) => setTimeout(r, 18));
+            }
+          } else {
+            await writeChunk('thinking', { delta: `Analyzing prompt: "${prompt}"...\nSynthesizing response with Claude editorial precision...\n` });
+
+            const demoResponse = `I received your message: **"${prompt}"**.\n\nI am Claude, running on the **${requestedProfile}** model profile.\n\nTo connect live AI models, add \`API_KEY\` in your **Vercel Project Settings $\\rightarrow$ Environment Variables**.`;
+
+            const words = demoResponse.split(' ');
+            for (let i = 0; i < words.length; i++) {
+              const chunk = (i === 0 ? '' : ' ') + words[i];
+              await writeChunk('text', { delta: chunk });
+              await new Promise((r) => setTimeout(r, 18));
+            }
           }
           await writeChunk('done', {});
         }
