@@ -11,16 +11,19 @@ import {
   X,
   ChevronDown,
   Trash2,
-  Copy,
   Check
 } from 'lucide-react';
 import { DiffViewer } from './DiffViewer';
+import { computeUnifiedDiff, extractCodeBlocksFromAIResponse } from './diffUtils';
 import { CodeProject, CodeFile, DiffProposal, ConsoleLog, ProblemItem, AssistantMessage } from './types';
 import { ChatApiClient } from '../../services/apiClient';
 
 interface ClaudeAssistantPanelProps {
   project: CodeProject;
   activeFile: CodeFile | null;
+  consoleLogs: ConsoleLog[];
+  problems: ProblemItem[];
+  onClearLogs: () => void;
   onApplyDiff: (filePath: string, newContent: string) => void;
   onSelectFileByPath?: (filePath: string) => void;
 }
@@ -28,6 +31,9 @@ interface ClaudeAssistantPanelProps {
 export const ClaudeAssistantPanel: React.FC<ClaudeAssistantPanelProps> = ({
   project,
   activeFile,
+  consoleLogs,
+  problems,
+  onClearLogs,
   onApplyDiff,
   onSelectFileByPath
 }) => {
@@ -43,29 +49,8 @@ export const ClaudeAssistantPanel: React.FC<ClaudeAssistantPanelProps> = ({
     {
       id: 'welcome-msg',
       role: 'assistant',
-      content: 'I can help you build features, write components, debug errors, and refactor code in **' + project.name + '**. Ask me anything!',
+      content: `I am your Claude coding assistant for **${project.name}**. I have context on your project files and currently active file (\`${activeFile?.path || 'none'}\`). Ask me to write features, modify styling, debug errors, or generate diffs!`,
       timestamp: Date.now()
-    }
-  ]);
-
-  // Simulated Console Logs
-  const [consoleLogs, setConsoleLogs] = useState<ConsoleLog[]>([
-    { id: '1', type: 'info', message: '$ npm run dev', timestamp: '14:20:01' },
-    { id: '2', type: 'info', message: '> website-redesign@1.0.0 dev', timestamp: '14:20:02' },
-    { id: '3', type: 'success', message: '✓ ready in 240ms (Vite v6.1.0)', timestamp: '14:20:03' },
-    { id: '4', type: 'info', message: '➜ Local: http://localhost:3000/', timestamp: '14:20:03' },
-    { id: '5', type: 'success', message: '✓ compiled successfully with zero TypeScript errors', timestamp: '14:20:05' }
-  ]);
-
-  // Problems
-  const [problems, setProblems] = useState<ProblemItem[]>([
-    {
-      id: 'p-1',
-      file: 'src/index.tsx',
-      line: 14,
-      column: 7,
-      message: "Optional chaining recommended for 'serviceWorker' in navigator",
-      severity: 'warning'
     }
   ]);
 
@@ -96,23 +81,26 @@ export const ClaudeAssistantPanel: React.FC<ClaudeAssistantPanelProps> = ({
       role: 'assistant',
       content: '',
       isThinking: true,
-      thinkingContent: 'Analyzing project files and synthesizing code solution...',
+      thinkingContent: 'Analyzing project codebase and formulating solution...',
       timestamp: Date.now()
     };
 
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setIsStreaming(true);
 
-    // Build context with current active file
+    // Build context with current active file and project structure
     const codeContext = activeFile
-      ? `Currently open file: ${activeFile.path}\n\`\`\`${activeFile.language}\n${activeFile.content}\n\`\`\``
+      ? `Active File: ${activeFile.path}\n\`\`\`${activeFile.language}\n${activeFile.content}\n\`\`\``
       : `Project: ${project.name}`;
 
     const systemPrompt = `You are Claude Code Assistant, an expert AI software engineer.
 You are assisting with the project "${project.name}".
 ${codeContext}
 
-When proposing code modifications, provide an explanation and the updated file code.`;
+When modifying or proposing code changes:
+1. Explain what you are changing.
+2. Provide the complete updated file code enclosed in standard markdown code fences with the language specified.
+3. Be concise, precise, and preserve existing functionality.`;
 
     let accumulatedText = '';
     let accumulatedThinking = '';
@@ -120,7 +108,7 @@ When proposing code modifications, provide an explanation and the updated file c
     try {
       await apiClient.current.streamChat(
         [
-          { id: '1', role: 'user', content: `${userText}\n\n${codeContext}`, createdAt: Date.now() }
+          { id: '1', role: 'user', content: `${userText}\n\n[Context]\n${codeContext}`, createdAt: Date.now() }
         ],
         'sonnet-5',
         systemPrompt,
@@ -148,34 +136,36 @@ When proposing code modifications, provide an explanation and the updated file c
           onDone: () => {
             setIsStreaming(false);
 
-            // Generate an automatic Diff proposal if user asked to modify code or buttons
-            if (activeFile && (userText.toLowerCase().includes('change') || userText.toLowerCase().includes('button') || userText.toLowerCase().includes('color') || userText.toLowerCase().includes('fix') || userText.toLowerCase().includes('add') || userText.toLowerCase().includes('modify'))) {
-              const originalLines = activeFile.content.split('\n');
-              const modifiedContent = activeFile.content.replace('Get Started', 'Start Free Trial');
-              
-              const diffProposal: DiffProposal = {
-                id: `diff-${Date.now()}`,
-                fileId: activeFile.id,
-                filePath: activeFile.path,
-                originalContent: activeFile.content,
-                proposedContent: modifiedContent,
-                explanation: `Updated button text and styling in ${activeFile.name}`,
-                status: 'pending',
-                lines: [
-                  { type: 'unchanged', content: '      <div className="flex items-center gap-3">' },
-                  { type: 'removed', content: '        <button className="px-5 py-2.5 rounded-xl bg-[#DA7756] text-white">Get Started</button>' },
-                  { type: 'added', content: '        <button className="px-5 py-2.5 rounded-xl bg-[#DA7756] hover:bg-[#C86545] text-white font-semibold">Start Free Trial</button>' },
-                  { type: 'unchanged', content: '        <button className="px-4 py-2.5 rounded-xl text-xs">Learn more &rarr;</button>' }
-                ]
-              };
+            // Compute REAL Unified Diff if Claude proposed code
+            if (activeFile && accumulatedText) {
+              const codeBlocks = extractCodeBlocksFromAIResponse(accumulatedText);
+              if (codeBlocks.length > 0) {
+                const targetBlock = codeBlocks[0];
+                const diffLines = computeUnifiedDiff(activeFile.content, targetBlock.code);
+                
+                // Only create diff proposal if there are real modifications
+                const hasChanges = diffLines.some(l => l.type === 'added' || l.type === 'removed');
+                if (hasChanges) {
+                  const diffProposal: DiffProposal = {
+                    id: `diff-${Date.now()}`,
+                    fileId: activeFile.id,
+                    filePath: activeFile.path,
+                    originalContent: activeFile.content,
+                    proposedContent: targetBlock.code,
+                    explanation: targetBlock.explanation || 'Proposed code changes for ' + activeFile.name,
+                    status: 'pending',
+                    lines: diffLines
+                  };
 
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMsgId
-                    ? { ...m, diff: diffProposal }
-                    : m
-                )
-              );
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantMsgId
+                        ? { ...m, diff: diffProposal }
+                        : m
+                    )
+                  );
+                }
+              }
             }
           },
           onError: (err) => {
@@ -204,16 +194,6 @@ When proposing code modifications, provide an explanation and the updated file c
           : m
       )
     );
-    // Add log to console
-    setConsoleLogs((prev) => [
-      ...prev,
-      {
-        id: String(Date.now()),
-        type: 'success',
-        message: `✓ Applied proposed changes to ${diff.filePath}`,
-        timestamp: new Date().toLocaleTimeString()
-      }
-    ]);
   };
 
   const handleRejectDiff = (diff: DiffProposal) => {
@@ -253,7 +233,6 @@ When proposing code modifications, provide an explanation and the updated file c
 
   return (
     <div className="h-64 sm:h-72 lg:h-80 bg-[#141413] border-t border-[#242320] flex flex-col select-none shrink-0">
-      
       {/* ─── Top Tabs Bar (matching Image) ─── */}
       <div className="flex items-center justify-between px-4 h-9 border-b border-[#242320] bg-[#141413]">
         {/* Tabs: Console, Problems, Claude */}
@@ -268,6 +247,11 @@ When proposing code modifications, provide an explanation and the updated file c
           >
             <Terminal className="w-3.5 h-3.5" />
             <span>Console</span>
+            {consoleLogs.length > 0 && (
+              <span className="text-[10px] bg-[#22211F] text-[#8C8A82] px-1.5 py-0.2 rounded-full font-mono">
+                {consoleLogs.length}
+              </span>
+            )}
           </button>
 
           <button
@@ -280,11 +264,11 @@ When proposing code modifications, provide an explanation and the updated file c
           >
             <AlertTriangle className="w-3.5 h-3.5" />
             <span>Problems</span>
-            {problems.length > 0 && (
-              <span className="text-[10px] bg-[#2E2C28] text-[#ECEBE7] px-1.5 py-0.2 rounded-full font-mono">
-                {problems.length}
-              </span>
-            )}
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+              problems.length > 0 ? 'bg-red-950 text-red-400 border border-red-800' : 'bg-[#22211F] text-[#8C8A82]'
+            }`}>
+              {problems.length}
+            </span>
           </button>
 
           <button
@@ -302,7 +286,11 @@ When proposing code modifications, provide an explanation and the updated file c
 
         {/* Right Tools (History, Minimize) */}
         <div className="flex items-center gap-2 text-[#8C8A82]">
-          <button className="p-1 hover:text-white rounded hover:bg-[#1E1D1B]" title="History">
+          <button
+            onClick={() => alert('Code Assistant Conversation History')}
+            className="p-1 hover:text-white rounded hover:bg-[#1E1D1B]"
+            title="History"
+          >
             <History className="w-3.5 h-3.5" />
           </button>
           <button
@@ -318,57 +306,73 @@ When proposing code modifications, provide an explanation and the updated file c
       {/* ─── Tab Content Area ─── */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         
-        {/* 1. CONSOLE TAB */}
+        {/* 1. CONSOLE TAB (Real Logs) */}
         {activeTab === 'console' && (
           <div className="flex-1 p-3 overflow-y-auto font-mono text-xs space-y-1 bg-[#10100F] text-[#ECEBE7]">
-            <div className="flex justify-end gap-2 pb-2">
+            <div className="flex justify-between items-center pb-2 border-b border-[#201F1D]">
+              <span className="text-[11px] text-[#706E68]">Project Runtime & Preview Console</span>
               <button
-                onClick={() => setConsoleLogs([])}
+                onClick={onClearLogs}
                 className="text-[11px] text-[#8C8A82] hover:text-white flex items-center gap-1"
               >
-                <Trash2 className="w-3 h-3" /> Clear
+                <Trash2 className="w-3 h-3" /> Clear logs
               </button>
             </div>
-            {consoleLogs.map((log) => (
-              <div key={log.id} className="flex items-start gap-2 leading-relaxed">
-                <span className="text-[#555] select-none text-[11px]">{log.timestamp}</span>
-                <span
-                  className={
-                    log.type === 'success'
-                      ? 'text-emerald-400'
-                      : log.type === 'error'
-                      ? 'text-red-400'
-                      : log.type === 'warn'
-                      ? 'text-amber-400'
-                      : 'text-[#C4C3BE]'
-                  }
-                >
-                  {log.message}
-                </span>
-              </div>
-            ))}
+            {consoleLogs.length === 0 ? (
+              <div className="py-6 text-center text-[#666] text-xs">No console logs yet. Logs from preview and builds appear here.</div>
+            ) : (
+              consoleLogs.map((log) => (
+                <div key={log.id} className="flex items-start gap-2 leading-relaxed">
+                  <span className="text-[#555] select-none text-[11px] shrink-0">{log.timestamp}</span>
+                  <span
+                    className={
+                      log.type === 'success'
+                        ? 'text-emerald-400'
+                        : log.type === 'error'
+                        ? 'text-red-400'
+                        : log.type === 'warn'
+                        ? 'text-amber-400'
+                        : 'text-[#C4C3BE]'
+                    }
+                  >
+                    {log.message}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         )}
 
-        {/* 2. PROBLEMS TAB */}
+        {/* 2. PROBLEMS TAB (Real Diagnostics) */}
         {activeTab === 'problems' && (
           <div className="flex-1 p-4 overflow-y-auto text-xs bg-[#10100F] space-y-2">
-            <p className="text-xs text-[#8C8A82]">{problems.length} problem detected in project files</p>
-            {problems.map((prob) => (
-              <div
-                key={prob.id}
-                onClick={() => onSelectFileByPath?.(prob.file)}
-                className="p-2.5 rounded-xl bg-[#1C1B19] border border-[#2B2A27] hover:border-[#DA7756]/60 cursor-pointer flex items-start gap-3 transition-colors"
-              >
-                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs font-medium text-white">{prob.message}</p>
-                  <p className="text-[11px] text-[#8C8A82] font-mono mt-0.5">
-                    {prob.file} [Line {prob.line}, Col {prob.column}]
-                  </p>
-                </div>
+            <div className="flex items-center justify-between pb-1 border-b border-[#201F1D]">
+              <p className="text-xs text-[#8C8A82]">
+                {problems.length === 0 ? 'No problems detected in project files' : `${problems.length} problem(s) detected`}
+              </p>
+            </div>
+
+            {problems.length === 0 ? (
+              <div className="py-8 text-center text-xs text-[#666]">
+                ✓ All project files compiled with zero errors.
               </div>
-            ))}
+            ) : (
+              problems.map((prob) => (
+                <div
+                  key={prob.id}
+                  onClick={() => onSelectFileByPath?.(prob.file)}
+                  className="p-2.5 rounded-xl bg-[#1C1B19] border border-[#2B2A27] hover:border-[#DA7756]/60 cursor-pointer flex items-start gap-3 transition-colors"
+                >
+                  <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-medium text-white">{prob.message}</p>
+                    <p className="text-[11px] text-[#8C8A82] font-mono mt-0.5">
+                      {prob.file} [Line {prob.line}, Col {prob.column}]
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
 
@@ -438,13 +442,15 @@ When proposing code modifications, provide an explanation and the updated file c
                   <div className="flex items-center gap-1 text-[#8C8A82]">
                     <button
                       type="button"
+                      onClick={() => alert(`Active file context attached: ${activeFile?.path || 'No active file'}`)}
                       className="p-1.5 hover:text-[#ECEBE7] hover:bg-[#262522] rounded-lg transition-colors"
-                      title="Attach file"
+                      title="Attach file context"
                     >
                       <Paperclip className="w-3.5 h-3.5" />
                     </button>
                     <button
                       type="button"
+                      onClick={() => setInputPrompt(prev => prev + ' @' + (activeFile?.name || 'src/App.tsx'))}
                       className="p-1.5 hover:text-[#ECEBE7] hover:bg-[#262522] rounded-lg transition-colors"
                       title="Mention file or symbol (@)"
                     >
@@ -452,6 +458,7 @@ When proposing code modifications, provide an explanation and the updated file c
                     </button>
                     <button
                       type="button"
+                      onClick={() => setInputPrompt(prev => prev + '\n```tsx\n\n```')}
                       className="p-1.5 hover:text-[#ECEBE7] hover:bg-[#262522] rounded-lg transition-colors"
                       title="Insert code snippet"
                     >

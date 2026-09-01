@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Folder,
   FolderOpen,
@@ -15,6 +15,7 @@ import {
   Edit2,
   FilePlus,
   FolderPlus,
+  UploadCloud,
   X
 } from 'lucide-react';
 import { FileSystemNode, CodeFile, CodeFolder } from './types';
@@ -22,22 +23,26 @@ import { FileSystemNode, CodeFile, CodeFolder } from './types';
 interface FileExplorerProps {
   files: FileSystemNode[];
   activeFileId: string;
+  isDemo?: boolean;
   onSelectFile: (fileId: string) => void;
   onCreateFile: (name: string, parentPath?: string) => void;
   onCreateFolder: (name: string, parentPath?: string) => void;
   onDeleteNode: (id: string) => void;
   onRenameNode: (id: string, newName: string) => void;
+  onImportFiles?: (fileList: FileList) => void;
   onOpenSettings?: () => void;
 }
 
 export const FileExplorer: React.FC<FileExplorerProps> = ({
   files,
   activeFileId,
+  isDemo,
   onSelectFile,
   onCreateFile,
   onCreateFolder,
   onDeleteNode,
   onRenameNode,
+  onImportFiles,
   onOpenSettings
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,9 +55,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [newDialogType, setNewDialogType] = useState<'file' | 'folder' | null>(null);
   const [newItemName, setNewItemName] = useState('');
-  const [contextNode, setContextNode] = useState<{ id: string; name: string } | null>(null);
   const [isRenamingId, setIsRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleFolder = (path: string) => {
     setOpenFolders((prev) => ({ ...prev, [path]: !prev[path] }));
@@ -251,7 +256,15 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     <div className="w-60 h-full bg-[#141413] border-r border-[#242320] flex flex-col select-none shrink-0">
       {/* Top Explorer Header matching Image */}
       <div className="flex items-center justify-between px-3.5 py-3 border-b border-[#242320]">
-        <span className="text-xs font-semibold uppercase tracking-wider text-[#9C9A92]">Files</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-[#9C9A92]">Files</span>
+          {isDemo && (
+            <span className="text-[10px] bg-[#2A2926] text-[#DA7756] px-1.5 py-0.2 rounded border border-[#3A3834] font-mono">
+              Demo
+            </span>
+          )}
+        </div>
+
         <div className="flex items-center gap-1">
           <div className="relative">
             <button
@@ -263,7 +276,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             </button>
 
             {isMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-36 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs">
+              <div className="absolute right-0 top-full mt-1 w-40 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs">
                 <button
                   onClick={() => {
                     setNewDialogType('file');
@@ -271,7 +284,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                   }}
                   className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#242320] text-left text-[#ECEBE7]"
                 >
-                  <FilePlus className="w-3.5 h-3.5 text-[#8C8A82]" />
+                  <FilePlus className="w-3.5 h-3.5 text-[#DA7756]" />
                   <span>New file</span>
                 </button>
                 <button
@@ -281,8 +294,19 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                   }}
                   className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#242320] text-left text-[#ECEBE7]"
                 >
-                  <FolderPlus className="w-3.5 h-3.5 text-[#8C8A82]" />
+                  <FolderPlus className="w-3.5 h-3.5 text-[#EAB308]" />
                   <span>New folder</span>
+                </button>
+                <div className="my-0.5 border-t border-[#262522]" />
+                <button
+                  onClick={() => {
+                    fileInputRef.current?.click();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#242320] text-left text-[#ECEBE7]"
+                >
+                  <UploadCloud className="w-3.5 h-3.5 text-[#8C8A82]" />
+                  <span>Import files</span>
                 </button>
               </div>
             )}
@@ -297,6 +321,19 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Hidden File Input for Real Imports */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            onImportFiles?.(e.target.files);
+          }
+        }}
+      />
 
       {/* Search files box (matching Image) */}
       <div className="p-2.5">
@@ -339,7 +376,13 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 
       {/* File Tree List */}
       <div className="flex-1 overflow-y-auto px-1.5 py-1 space-y-0.5">
-        {files.map((node) => renderNode(node, 0))}
+        {files.length === 0 ? (
+          <div className="p-4 text-center text-xs text-[#706E68]">
+            No files in project. Click + to create a file or import files.
+          </div>
+        ) : (
+          files.map((node) => renderNode(node, 0))
+        )}
       </div>
 
       {/* Bottom Code Settings (matching Image) */}

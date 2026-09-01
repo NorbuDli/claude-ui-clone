@@ -22,6 +22,7 @@ export interface CodeProject {
   id: string;
   name: string;
   description: string;
+  isDemo?: boolean;
   files: FileSystemNode[];
   activeFileId: string;
   openFileIds: string[];
@@ -71,4 +72,12 @@ export interface AssistantMessage {
   isThinking?: boolean;
   thinkingContent?: string;
   timestamp: number;
+}
+
+export interface CodeEditorSettings {
+  fontSize: number;
+  tabSize: number;
+  wordWrap: boolean;
+  lineNumbers: boolean;
+  autoFormat: boolean;
 }
