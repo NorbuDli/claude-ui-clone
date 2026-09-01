@@ -18,9 +18,12 @@ import { LoginView } from './components/LoginView';
 import { ActivePageView } from './types';
 import { ArrowDown, PanelLeftOpen } from 'lucide-react';
 
-// Lazy load CustomizeView — it's a large component
+// Lazy load large views
 const CustomizeView = React.lazy(() =>
   import('./components/CustomizeView').then((mod) => ({ default: mod.CustomizeView }))
+);
+const CodeWorkspaceView = React.lazy(() =>
+  import('./components/code/CodeWorkspaceView').then((mod) => ({ default: mod.CodeWorkspaceView }))
 );
 
 const ClaudeWorkspace: React.FC = () => {
@@ -142,6 +145,17 @@ const ClaudeWorkspace: React.FC = () => {
 
           {/* Artifacts View */}
           {activePageView === 'artifacts' && <ArtifactsView />}
+
+          {/* Code Workspace View */}
+          {activePageView === 'code' && (
+            <React.Suspense fallback={
+              <div className="flex-1 flex items-center justify-center bg-[#141413]">
+                <div className="text-sm text-[#8C8A82]">Loading Code Workspace...</div>
+              </div>
+            }>
+              <CodeWorkspaceView />
+            </React.Suspense>
+          )}
 
           {/* Customize View */}
           {activePageView === 'customize' && (
