@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Sidebar } from './components/Sidebar';
 import { ActiveChatHeader } from './components/ActiveChatHeader';
 import { LandingView } from './components/LandingView';
@@ -114,6 +115,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#141413] text-[#ECEBE7] font-sans antialiased selection:bg-[#DA7756]/30">
+      <SpeedInsights />
       {/* Left Navigation Sidebar */}
       <Sidebar
         isOpen={isSidebarOpen}
