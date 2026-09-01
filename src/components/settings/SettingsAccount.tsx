@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Laptop, Check, Copy, UserPlus, Trash2, Key, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Laptop, Check, Copy, UserPlus, Trash2, Key, Eye, EyeOff, ShieldCheck, Clock, Plus, Calendar, AlertTriangle } from 'lucide-react';
 import { UserSettings, ActivePageView, UserPlanTier } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
@@ -16,7 +16,7 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
   clearAllConversations,
   setActivePageView 
 }) => {
-  const { user: currentUser, authorizedUsers, addAuthorizedAccount, deleteAuthorizedAccount } = useAuth();
+  const { user: currentUser, authorizedUsers, addAuthorizedAccount, deleteAuthorizedAccount, extendUserDuration } = useAuth();
   const [copiedOrgId, setCopiedOrgId] = useState(false);
   const [copiedAccountEmail, setCopiedAccountEmail] = useState<string | null>(null);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
@@ -28,7 +28,22 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [newPlan, setNewPlan] = useState<UserPlanTier>('pro');
   const [newRole, setNewRole] = useState<'admin' | 'member'>('member');
+  const [durationDays, setDurationDays] = useState<number>(30); // 30 days = 1 month default
   const [addError, setAddError] = useState<string | null>(null);
+
+  const getExpiryInfo = (expiresAt: number | null | undefined) => {
+    if (!expiresAt) return { isExpired: false, label: 'Unlimited / Never', daysLeft: null, dateStr: 'Never' };
+    const now = Date.now();
+    const diff = expiresAt - now;
+    const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    const isExpired = diff <= 0;
+    const dateStr = new Date(expiresAt).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    return { isExpired, label: dateStr, daysLeft, dateStr };
+  };
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,27 +54,48 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
       return;
     }
 
+    const expiresAt = durationDays > 0 ? Date.now() + durationDays * 24 * 60 * 60 * 1000 : null;
+    const durationLabel = durationDays === 30 ? '1 Month'
+      : durationDays === 60 ? '2 Months'
+      : durationDays === 90 ? '3 Months'
+      : durationDays === 180 ? '6 Months'
+      : durationDays === 365 ? '1 Year'
+      : durationDays === 7 ? '7 Days'
+      : 'Unlimited';
+
     try {
       addAuthorizedAccount({
         name: newName.trim(),
         email: newEmail.trim().toLowerCase(),
         password: newPassword.trim(),
         plan: newPlan,
-        role: newRole
+        role: newRole,
+        expiresAt,
+        durationLabel
       });
       setNewName('');
       setNewEmail('');
       setNewPassword('');
+      setDurationDays(30);
       setIsAddingUser(false);
     } catch (err: any) {
       setAddError(err.message || 'Failed to add user.');
     }
   };
 
-  const handleCopyCredentials = (email: string, pass: string) => {
-    navigator.clipboard.writeText(`Email: ${email}\nPassword: ${pass}`);
-    setCopiedAccountEmail(email);
-    setTimeout(() => setCopiedAccountEmail(null), 2000);
+  const handleCopyCredentials = (acc: typeof authorizedUsers[0]) => {
+    const expiry = getExpiryInfo(acc.expiresAt);
+    const text = [
+      `🌐 Claude Workspace Login`,
+      `Email: ${acc.email}`,
+      `Password: ${acc.password}`,
+      `Plan: ${acc.plan.toUpperCase()}`,
+      `Access Duration: ${acc.durationLabel || 'Custom'} (Expires: ${expiry.dateStr})`,
+    ].join('\n');
+
+    navigator.clipboard.writeText(text);
+    setCopiedAccountEmail(acc.email);
+    setTimeout(() => setCopiedAccountEmail(null), 2500);
   };
 
   const handleCopyOrgId = () => {
@@ -72,7 +108,7 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
     <div className="space-y-8 max-w-xl">
       <div>
         <h3 className="text-sm font-semibold text-[#ECEBE7] mb-1">Account & Access Control</h3>
-        <p className="text-xs text-[#8C8A82]">Manage credentials, authorized user logins, and private access.</p>
+        <p className="text-xs text-[#8C8A82]">Manage credentials, authorized user logins, duration expiration, and private access.</p>
       </div>
 
       {/* ─── AUTHORIZED ACCOUNTS & PASSWORDS (ADMIN) ─── */}
@@ -81,10 +117,10 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
           <div>
             <h4 className="text-xs font-semibold text-[#ECEBE7] flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-[#DA7756]" />
-              <span>Authorized User Logins</span>
+              <span>Authorized User Accounts & Access Duration</span>
             </h4>
             <p className="text-[11px] text-[#8C8A82]">
-              Only these accounts can log in to your Claude workspace. Public signup is disabled.
+              Create user logins with custom expiration (e.g. 1 month, 2 months). When expired, access is blocked automatically.
             </p>
           </div>
           <button
@@ -101,7 +137,7 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
           <form onSubmit={handleAddUser} className="p-4 rounded-2xl bg-[#1C1B19] border border-[#DA7756]/40 space-y-3 animate-in fade-in duration-200">
             <div className="text-xs font-medium text-[#ECEBE7] flex items-center gap-1">
               <Key className="w-3.5 h-3.5 text-[#DA7756]" />
-              <span>Create New User & Password</span>
+              <span>Create User Login & Access Duration</span>
             </div>
 
             {addError && (
@@ -151,10 +187,35 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
                   onChange={(e) => setNewPlan(e.target.value as UserPlanTier)}
                   className="w-full bg-[#141413] border border-[#2B2A27] focus:border-[#DA7756] rounded-xl px-3 py-2 text-xs text-[#ECEBE7] outline-none"
                 >
-                  <option value="pro">Pro Plan</option>
-                  <option value="free">Free Plan</option>
+                  <option value="pro">Pro Plan (Unlimited Claude 3.7)</option>
                   <option value="team">Team Plan</option>
+                  <option value="free">Free Plan</option>
                 </select>
+              </div>
+
+              <div className="space-y-1 sm:col-span-2">
+                <label className="text-[11px] text-[#8C8A82] flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-[#DA7756]" />
+                  <span>Access Duration (Auto-Expires After)</span>
+                </label>
+                <select
+                  value={durationDays}
+                  onChange={(e) => setDurationDays(Number(e.target.value))}
+                  className="w-full bg-[#141413] border border-[#2B2A27] focus:border-[#DA7756] rounded-xl px-3 py-2 text-xs text-[#ECEBE7] outline-none"
+                >
+                  <option value={30}>1 Month (30 Days)</option>
+                  <option value={60}>2 Months (60 Days)</option>
+                  <option value={90}>3 Months (90 Days)</option>
+                  <option value={180}>6 Months (180 Days)</option>
+                  <option value={365}>1 Year (365 Days)</option>
+                  <option value={7}>7 Days (Trial)</option>
+                  <option value={0}>Unlimited / Never Expire</option>
+                </select>
+                <p className="text-[10px] text-[#706E68]">
+                  {durationDays > 0 
+                    ? `Account will automatically expire on ${new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.` 
+                    : 'Account will remain active forever until manually deleted.'}
+                </p>
               </div>
             </div>
 
@@ -170,7 +231,7 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
                 type="submit"
                 className="px-4 py-1.5 rounded-xl bg-[#ECEBE7] hover:bg-white text-black text-xs font-medium transition-colors shadow-sm"
               >
-                Save Account
+                Save Account & Set Expiration
               </button>
             </div>
           </form>
@@ -181,11 +242,12 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
           {authorizedUsers.map((acc) => {
             const isPassVisible = showPasswords[acc.id];
             const isCopied = copiedAccountEmail === acc.email;
+            const expiry = getExpiryInfo(acc.expiresAt);
 
             return (
-              <div key={acc.id} className="p-3.5 flex items-center justify-between text-xs gap-3">
-                <div className="flex-1 min-w-0 space-y-0.5">
-                  <div className="flex items-center gap-2">
+              <div key={acc.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-3">
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-[#ECEBE7] truncate">{acc.name}</span>
                     <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold uppercase ${
                       acc.plan === 'pro' 
@@ -199,8 +261,27 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
                         Admin
                       </span>
                     )}
+
+                    {/* Expiration Badge */}
+                    {expiry.isExpired ? (
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-red-950/70 text-red-300 border border-red-800/60 flex items-center gap-1 font-semibold">
+                        <AlertTriangle className="w-2.5 h-2.5 text-red-400" />
+                        <span>EXPIRED ({expiry.dateStr})</span>
+                      </span>
+                    ) : expiry.daysLeft !== null ? (
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/40 flex items-center gap-1">
+                        <Clock className="w-2.5 h-2.5 text-emerald-400" />
+                        <span>{expiry.daysLeft}d left ({expiry.dateStr})</span>
+                      </span>
+                    ) : (
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-neutral-800 text-neutral-400 border border-neutral-700">
+                        Unlimited
+                      </span>
+                    )}
                   </div>
+
                   <div className="text-[11px] text-[#8C8A82] font-mono truncate">{acc.email}</div>
+
                   <div className="flex items-center gap-2 pt-0.5 text-[11px] text-[#706E68]">
                     <span>Password:</span>
                     <span className="font-mono text-[#B4B3AD]">
@@ -217,14 +298,34 @@ export const SettingsAccount: React.FC<SettingsTabProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
+                {/* Actions: Renew +1 Mo / +2 Mo / Copy / Delete */}
+                <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
                   <button
-                    onClick={() => handleCopyCredentials(acc.email, acc.password)}
+                    onClick={() => extendUserDuration(acc.id, 30)}
+                    className="px-2 py-1 rounded-lg bg-[#242320] hover:bg-[#2C2A27] text-[10px] text-[#A5A39C] hover:text-[#DA7756] border border-[#33312E] transition-colors flex items-center gap-0.5"
+                    title="Extend user access by 30 days (1 Month)"
+                  >
+                    <Plus className="w-2.5 h-2.5" />
+                    <span>+1 Mo</span>
+                  </button>
+
+                  <button
+                    onClick={() => extendUserDuration(acc.id, 60)}
+                    className="px-2 py-1 rounded-lg bg-[#242320] hover:bg-[#2C2A27] text-[10px] text-[#A5A39C] hover:text-[#DA7756] border border-[#33312E] transition-colors flex items-center gap-0.5"
+                    title="Extend user access by 60 days (2 Months)"
+                  >
+                    <Plus className="w-2.5 h-2.5" />
+                    <span>+2 Mo</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleCopyCredentials(acc)}
                     className="p-1.5 rounded-lg bg-[#242320] hover:bg-[#2C2A27] text-[#8C8A82] hover:text-[#ECEBE7] border border-[#33312E] transition-colors"
-                    title="Copy Email & Password to clipboard"
+                    title="Copy full login credentials & expiration info to clipboard"
                   >
                     {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
+
                   {acc.email !== 'norbu@claude.ai' && (
                     <button
                       onClick={() => {

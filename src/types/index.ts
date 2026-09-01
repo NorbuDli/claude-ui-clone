@@ -240,6 +240,8 @@ export interface AuthUser {
   plan: UserPlanTier;
   role?: 'admin' | 'member';
   createdAt?: number;
+  expiresAt?: number | null;
+  durationLabel?: string;
   provider?: 'google' | 'email' | 'guest';
 }
 
@@ -251,5 +253,8 @@ export interface AuthorizedAccount {
   plan: UserPlanTier;
   role: 'admin' | 'member';
   createdAt: number;
+  expiresAt?: number | null;
+  durationLabel?: string;
 }
+
 

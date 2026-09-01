@@ -8,7 +8,9 @@ export const DEFAULT_AUTHORIZED_USERS: AuthorizedAccount[] = [
     password: 'password123',
     plan: 'pro',
     role: 'admin',
-    createdAt: 1700000000000
+    createdAt: 1700000000000,
+    expiresAt: null,
+    durationLabel: 'Unlimited'
   },
   {
     id: 'usr_admin_default',
@@ -17,11 +19,20 @@ export const DEFAULT_AUTHORIZED_USERS: AuthorizedAccount[] = [
     password: 'adminpassword',
     plan: 'pro',
     role: 'admin',
-    createdAt: 1700000000000
+    createdAt: 1700000000000,
+    expiresAt: null,
+    durationLabel: 'Unlimited'
   }
 ];
 
 const STORAGE_KEY = 'claude_authorized_accounts_v1';
+
+export function isAccountExpired(account: AuthorizedAccount | { expiresAt?: number | null }): boolean {
+  if (!account || account.expiresAt === null || account.expiresAt === undefined) {
+    return false;
+  }
+  return Date.now() > account.expiresAt;
+}
 
 export function getAuthorizedUsers(): AuthorizedAccount[] {
   try {
@@ -50,7 +61,9 @@ export function saveAuthorizedUser(user: Omit<AuthorizedAccount, 'id' | 'created
     password: user.password,
     plan: user.plan || 'pro',
     role: user.role || 'member',
-    createdAt: existingIndex >= 0 ? users[existingIndex].createdAt : Date.now()
+    createdAt: existingIndex >= 0 ? users[existingIndex].createdAt : Date.now(),
+    expiresAt: user.expiresAt !== undefined ? user.expiresAt : null,
+    durationLabel: user.durationLabel || (user.expiresAt ? 'Custom' : 'Unlimited')
   };
 
   if (existingIndex >= 0) {

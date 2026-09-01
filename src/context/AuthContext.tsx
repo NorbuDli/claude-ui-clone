@@ -15,6 +15,7 @@ interface AuthContextType {
   loginWithEmail: (email: string, password?: string) => Promise<void>;
   addAuthorizedAccount: (account: Omit<AuthorizedAccount, 'id' | 'createdAt'> & { id?: string }) => AuthorizedAccount;
   deleteAuthorizedAccount: (idOrEmail: string) => void;
+  extendUserDuration: (idOrEmail: string, additionalDays: number) => void;
   logout: () => void;
   updateUser: (updates: Partial<AuthUser>) => void;
 }
@@ -30,7 +31,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed: AuthUser = JSON.parse(saved);
+        // Check if session has expired
+        if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
+          localStorage.removeItem(STORAGE_KEY);
+          return null;
+        }
+        return parsed;
       }
     } catch (e) {
       console.error('Failed to parse auth session:', e);
@@ -69,7 +76,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       plan: adminAcc?.plan || 'pro',
       role: 'admin',
       provider: 'google',
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      expiresAt: null,
+      durationLabel: 'Unlimited'
     };
     setUser(googleUser);
     setIsLoading(false);
@@ -100,6 +109,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Incorrect password. Please verify your password and try again.');
     }
 
+    // Check account expiration duration
+    if (matched.expiresAt && Date.now() > matched.expiresAt) {
+      setIsLoading(false);
+      const expiredDateStr = new Date(matched.expiresAt).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      throw new Error(
+        `Account expired. Your access subscription expired on ${expiredDateStr}. Please contact the administrator to renew your account.`
+      );
+    }
+
     const authUser: AuthUser = {
       id: matched.id,
       name: matched.name,
@@ -107,7 +129,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       plan: matched.plan || 'pro',
       role: matched.role || 'member',
       provider: 'email',
-      createdAt: matched.createdAt
+      createdAt: matched.createdAt,
+      expiresAt: matched.expiresAt,
+      durationLabel: matched.durationLabel
     };
 
     setUser(authUser);
@@ -123,6 +147,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deleteAuthorizedAccount = (idOrEmail: string) => {
     deleteAuthorizedUser(idOrEmail);
     setAuthorizedUsers(getAuthorizedUsers());
+  };
+
+  const extendUserDuration = (idOrEmail: string, additionalDays: number) => {
+    const accounts = getAuthorizedUsers();
+    const account = accounts.find(a => a.id === idOrEmail || a.email.toLowerCase() === idOrEmail.toLowerCase());
+    if (account) {
+      const baseTime = account.expiresAt && account.expiresAt > Date.now() ? account.expiresAt : Date.now();
+      const newExpiry = baseTime + additionalDays * 24 * 60 * 60 * 1000;
+      saveAuthorizedUser({
+        ...account,
+        expiresAt: newExpiry,
+        durationLabel: `+${additionalDays} Days (Extended)`
+      });
+      setAuthorizedUsers(getAuthorizedUsers());
+    }
   };
 
   const logout = () => {
@@ -146,6 +185,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginWithEmail,
         addAuthorizedAccount,
         deleteAuthorizedAccount,
+        extendUserDuration,
         logout,
         updateUser
       }}
