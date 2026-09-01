@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import { Sparkles, ArrowRight, Lock, Mail, User, ShieldCheck } from 'lucide-react';
 import claudeLogoSvg from '../assets/claude-logo.svg';
 
 export const LoginView: React.FC = () => {
   const { loginWithGoogle, loginWithEmail, signupWithEmail, isLoading } = useAuth();
+  const { updateSettings } = useSettings();
 
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
@@ -28,8 +30,12 @@ export const LoginView: React.FC = () => {
 
     try {
       if (mode === 'login') {
+        const namePart = email.split('@')[0] || 'User';
+        const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+        updateSettings({ userName: formattedName, userEmail: email.trim().toLowerCase() });
         await loginWithEmail(email, password);
       } else {
+        updateSettings({ userName: name.trim(), userEmail: email.trim().toLowerCase() });
         await signupWithEmail(name, email, password);
       }
     } catch (err: any) {

@@ -23,8 +23,7 @@ const CustomizeView = React.lazy(() =>
   import('./components/CustomizeView').then((mod) => ({ default: mod.CustomizeView }))
 );
 
-export const App: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+const ClaudeWorkspace: React.FC = () => {
   const {
     activeConversation,
     activePageView,
@@ -46,10 +45,6 @@ export const App: React.FC = () => {
   const [previousPageView, setPreviousPageView] = useState<ActivePageView>('chat');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  if (!isAuthenticated) {
-    return <LoginView />;
-  }
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Handle window resize - auto-close sidebar on mobile
@@ -245,3 +240,14 @@ export const App: React.FC = () => {
     </div>
   );
 };
+
+export const App: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) {
+    return <LoginView />;
+  }
+
+  return <ClaudeWorkspace />;
+};
+
