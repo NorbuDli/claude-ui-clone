@@ -5,6 +5,7 @@ import {
   saveAuthorizedUser,
   deleteAuthorizedUser
 } from '../config/authorizedUsers';
+import { fetchSupabaseAuthorizedUsers } from '../services/supabase';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -26,6 +27,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [authorizedUsers, setAuthorizedUsers] = useState<AuthorizedAccount[]>(() => getAuthorizedUsers());
+
+  // Cloud Sync on Mount
+  useEffect(() => {
+    fetchSupabaseAuthorizedUsers().then((remoteUsers) => {
+      if (remoteUsers && remoteUsers.length > 0) {
+        const local = getAuthorizedUsers();
+        const map = new Map<string, AuthorizedAccount>();
+        local.forEach((u) => map.set(u.email.toLowerCase(), u));
+        remoteUsers.forEach((u) => map.set(u.email.toLowerCase(), u));
+        const merged = Array.from(map.values());
+        try {
+          localStorage.setItem('claude_authorized_accounts_v1', JSON.stringify(merged));
+        } catch (e) {}
+        setAuthorizedUsers(merged);
+      }
+    }).catch(() => {});
+  }, []);
 
   const [user, setUser] = useState<AuthUser | null>(() => {
     try {
@@ -92,10 +110,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanPassword = (password || '').trim();
 
     // Reload latest authorized users
-    const accounts = getAuthorizedUsers();
-    const matched = accounts.find(
+    let accounts = getAuthorizedUsers();
+    let matched = accounts.find(
       (a) => a.email.toLowerCase() === cleanEmail
     );
+
+    // If not found locally, try fetching fresh from Supabase
+    if (!matched) {
+      try {
+        const remoteUsers = await fetchSupabaseAuthorizedUsers();
+        if (remoteUsers && remoteUsers.length > 0) {
+          const map = new Map<string, AuthorizedAccount>();
+          accounts.forEach((u) => map.set(u.email.toLowerCase(), u));
+          remoteUsers.forEach((u) => map.set(u.email.toLowerCase(), u));
+          accounts = Array.from(map.values());
+          try {
+            localStorage.setItem('claude_authorized_accounts_v1', JSON.stringify(accounts));
+          } catch (e) {}
+          setAuthorizedUsers(accounts);
+          matched = accounts.find((a) => a.email.toLowerCase() === cleanEmail);
+        }
+      } catch (e) {}
+    }
 
     if (!matched) {
       setIsLoading(false);

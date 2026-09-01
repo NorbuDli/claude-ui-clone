@@ -1,4 +1,5 @@
 import { AuthorizedAccount } from '../types';
+import { saveSupabaseAuthorizedUser, deleteSupabaseAuthorizedUser } from '../services/supabase';
 
 export const DEFAULT_AUTHORIZED_USERS: AuthorizedAccount[] = [
   {
@@ -13,7 +14,6 @@ export const DEFAULT_AUTHORIZED_USERS: AuthorizedAccount[] = [
     durationLabel: 'Unlimited / Owner'
   }
 ];
-
 
 const STORAGE_KEY = 'claude_authorized_accounts_v1';
 
@@ -76,11 +76,17 @@ export function saveAuthorizedUser(user: Omit<AuthorizedAccount, 'id' | 'created
     console.error('Failed to save authorized users:', e);
   }
 
+  // Background Cloud Sync to Supabase
+  saveSupabaseAuthorizedUser(newAccount).catch((err) => {
+    console.warn('Background Supabase sync failed (offline or table pending):', err);
+  });
+
   return newAccount;
 }
 
 export function deleteAuthorizedUser(emailOrId: string): void {
   const users = getAuthorizedUsers();
+  const target = users.find((u) => u.id === emailOrId || u.email.toLowerCase() === emailOrId.toLowerCase());
   const filtered = users.filter(
     (u) => u.id !== emailOrId && u.email.toLowerCase() !== emailOrId.toLowerCase()
   );
@@ -89,4 +95,11 @@ export function deleteAuthorizedUser(emailOrId: string): void {
   } catch (e) {
     console.error('Failed to delete authorized user:', e);
   }
-}
+
+    if (target) {
+      // Background Cloud Delete in Supabase
+      deleteSupabaseAuthorizedUser(target.email).catch((err) => {
+        console.warn('Background Supabase delete failed:', err);
+      });
+    }
+  }
