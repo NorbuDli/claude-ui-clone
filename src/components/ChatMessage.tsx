@@ -285,7 +285,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isLast = fals
             </form>
           ) : (
             <div className="relative group/msg">
-              <div className="bg-[#242320] text-[#ECEBE7] px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm leading-relaxed whitespace-pre-wrap selection:bg-[#DA7756]/40 border border-[#2B2A27]">
+              <div className="bg-[#2C2A26] text-[#ECEBE7] px-4 py-2.5 rounded-2xl rounded-tr-md text-[14.5px] leading-relaxed whitespace-pre-wrap selection:bg-[#DA7756]/40 border border-[#3A3834]/60 shadow-xs">
                 {message.content}
               </div>
 

@@ -390,7 +390,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 isStreaming
                   ? 'bg-[#DA7756] hover:bg-[#C86545] text-white shadow'
                   : isReadyToSend
-                  ? 'bg-[#854D3D] hover:bg-[#9E5D4B] text-white shadow cursor-pointer'
+                  ? 'bg-[#DA7756] hover:bg-[#C86545] text-white shadow-sm cursor-pointer'
                   : 'bg-[#252422] text-[#4E4D48] cursor-not-allowed'
               }`}
               title={isStreaming ? 'Stop response' : 'Send message (Enter)'}
