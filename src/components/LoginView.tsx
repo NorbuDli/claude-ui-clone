@@ -5,12 +5,10 @@ import { Sparkles, ArrowRight, Lock, Mail, User, ShieldCheck } from 'lucide-reac
 import claudeLogoSvg from '../assets/claude-logo.svg';
 
 export const LoginView: React.FC = () => {
-  const { loginWithGoogle, loginWithEmail, signupWithEmail, isLoading } = useAuth();
+  const { loginWithGoogle, loginWithEmail, isLoading } = useAuth();
   const { updateSettings } = useSettings();
 
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -23,21 +21,16 @@ export const LoginView: React.FC = () => {
       return;
     }
 
-    if (mode === 'signup' && !name.trim()) {
-      setErrorMessage('Please enter your name.');
+    if (!password.trim()) {
+      setErrorMessage('Please enter your password.');
       return;
     }
 
     try {
-      if (mode === 'login') {
-        const namePart = email.split('@')[0] || 'User';
-        const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-        updateSettings({ userName: formattedName, userEmail: email.trim().toLowerCase() });
-        await loginWithEmail(email, password);
-      } else {
-        updateSettings({ userName: name.trim(), userEmail: email.trim().toLowerCase() });
-        await signupWithEmail(name, email, password);
-      }
+      const namePart = email.split('@')[0] || 'User';
+      const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+      updateSettings({ userName: formattedName, userEmail: email.trim().toLowerCase() });
+      await loginWithEmail(email, password);
     } catch (err: any) {
       setErrorMessage(err.message || 'Authentication failed. Please try again.');
     }
@@ -61,19 +54,10 @@ export const LoginView: React.FC = () => {
           </span>
         </div>
 
-        <div className="flex items-center gap-3 text-xs">
-          <span className="text-[#8C8A82] hidden sm:inline">
-            {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
+        <div className="flex items-center gap-2 text-xs">
+          <span className="px-2.5 py-1 rounded-lg bg-[#201F1D] border border-[#2B2A27] text-[#8C8A82] text-[11px]">
+            Private Workspace
           </span>
-          <button
-            onClick={() => {
-              setMode(mode === 'login' ? 'signup' : 'login');
-              setErrorMessage(null);
-            }}
-            className="px-3.5 py-1.5 rounded-xl border border-[#2F2E2B] bg-[#1E1E1C] hover:bg-[#282724] text-[#ECEBE7] font-medium transition-colors"
-          >
-            {mode === 'login' ? 'Sign up' : 'Log in'}
-          </button>
         </div>
       </header>
 
@@ -83,10 +67,10 @@ export const LoginView: React.FC = () => {
           {/* Header */}
           <div className="text-center space-y-2">
             <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight text-[#ECEBE7]">
-              {mode === 'login' ? 'Log in to Claude' : 'Create your account'}
+              Log in to Claude
             </h1>
             <p className="text-xs sm:text-sm text-[#9C9A92] leading-relaxed">
-              Talk with Claude, build artifacts, and collaborate on projects.
+              Enter your authorized account email and password to access the workspace.
             </p>
           </div>
 
@@ -137,22 +121,6 @@ export const LoginView: React.FC = () => {
               </div>
             )}
 
-            {mode === 'signup' && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#B4B3AD]">Full name</label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7E7C76]" />
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Norbu"
-                    className="w-full bg-[#141413] border border-[#2E2D2A] focus:border-[#DA7756] rounded-xl pl-10 pr-3.5 py-2.5 text-xs sm:text-sm text-[#ECEBE7] placeholder-[#66645E] outline-none transition-colors"
-                  />
-                </div>
-              </div>
-            )}
-
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-[#B4B3AD]">Email address</label>
               <div className="relative">
@@ -170,15 +138,13 @@ export const LoginView: React.FC = () => {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-medium text-[#B4B3AD]">Password</label>
-                {mode === 'login' && (
-                  <button
-                    type="button"
-                    onClick={() => alert('Password reset link sent to demo email.')}
-                    className="text-[11px] text-[#8C8A82] hover:text-[#DA7756] transition-colors"
-                  >
-                    Forgot password?
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => alert('Please contact your administrator to reset or retrieve your account password.')}
+                  className="text-[11px] text-[#8C8A82] hover:text-[#DA7756] transition-colors"
+                >
+                  Forgot password?
+                </button>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7E7C76]" />
@@ -197,7 +163,7 @@ export const LoginView: React.FC = () => {
               disabled={isLoading}
               className="w-full py-2.5 px-4 bg-[#ECEBE7] hover:bg-white text-[#141413] font-medium rounded-xl text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 active:scale-[0.99]"
             >
-              <span>{isLoading ? 'Signing in...' : mode === 'login' ? 'Continue with email' : 'Create account'}</span>
+              <span>{isLoading ? 'Verifying...' : 'Continue with email'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>

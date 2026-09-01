@@ -1,32 +1,31 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AuthUser, UserPlanTier } from '../types';
+import { AuthUser, AuthorizedAccount, UserPlanTier } from '../types';
+import {
+  getAuthorizedUsers,
+  saveAuthorizedUser,
+  deleteAuthorizedUser
+} from '../config/authorizedUsers';
 
 interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  authorizedUsers: AuthorizedAccount[];
   loginWithGoogle: () => Promise<void>;
   loginWithEmail: (email: string, password?: string) => Promise<void>;
-  signupWithEmail: (name: string, email: string, password?: string) => Promise<void>;
-  quickLoginAs: (presetUser: Partial<AuthUser>) => void;
+  addAuthorizedAccount: (account: Omit<AuthorizedAccount, 'id' | 'createdAt'> & { id?: string }) => AuthorizedAccount;
+  deleteAuthorizedAccount: (idOrEmail: string) => void;
   logout: () => void;
   updateUser: (updates: Partial<AuthUser>) => void;
 }
 
-const DEFAULT_DEMO_USER: AuthUser = {
-  id: 'usr_norbu_01',
-  name: 'Norbu',
-  email: 'norbu@claude.ai',
-  plan: 'pro',
-  createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
-  provider: 'email'
-};
+const STORAGE_KEY = 'claude_auth_session';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'claude_auth_session';
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [authorizedUsers, setAuthorizedUsers] = useState<AuthorizedAccount[]>(() => getAuthorizedUsers());
+
   const [user, setUser] = useState<AuthUser | null>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -36,12 +35,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.error('Failed to parse auth session:', e);
     }
-    // Default to initial demo user or null if explicitly logged out
-    const loggedOut = localStorage.getItem('claude_has_logged_out');
-    if (loggedOut === 'true') {
-      return null;
-    }
-    return DEFAULT_DEMO_USER;
+    // Default to null if no active session
+    return null;
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -61,13 +56,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithGoogle = async () => {
     setIsLoading(true);
-    // Simulate brief network auth delay
-    await new Promise((resolve) => setTimeout(resolve, 650));
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    // Look for existing google user or admin account
+    const accounts = getAuthorizedUsers();
+    const adminAcc = accounts.find((a) => a.role === 'admin') || accounts[0];
+
     const googleUser: AuthUser = {
-      id: 'usr_g_' + Math.random().toString(36).substring(2, 9),
-      name: 'Google User',
-      email: 'user@gmail.com',
-      plan: 'pro',
+      id: adminAcc?.id || 'usr_g_admin',
+      name: adminAcc?.name || 'Norbu',
+      email: adminAcc?.email || 'norbu@claude.ai',
+      plan: adminAcc?.plan || 'pro',
+      role: 'admin',
       provider: 'google',
       createdAt: Date.now()
     };
@@ -75,48 +75,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   };
 
-  const loginWithEmail = async (email: string, _password?: string) => {
+  const loginWithEmail = async (email: string, password?: string) => {
     setIsLoading(true);
     await new Promise((resolve) => setTimeout(resolve, 500));
-    const namePart = email.split('@')[0] || 'User';
-    const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-    const emailUser: AuthUser = {
-      id: 'usr_em_' + Math.random().toString(36).substring(2, 9),
-      name: formattedName,
-      email: email.trim().toLowerCase(),
-      plan: 'free',
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = (password || '').trim();
+
+    // Reload latest authorized users
+    const accounts = getAuthorizedUsers();
+    const matched = accounts.find(
+      (a) => a.email.toLowerCase() === cleanEmail
+    );
+
+    if (!matched) {
+      setIsLoading(false);
+      throw new Error(
+        'Access denied. This email is not registered on this private workspace. Please contact the administrator.'
+      );
+    }
+
+    if (matched.password && matched.password !== cleanPassword) {
+      setIsLoading(false);
+      throw new Error('Incorrect password. Please verify your password and try again.');
+    }
+
+    const authUser: AuthUser = {
+      id: matched.id,
+      name: matched.name,
+      email: matched.email,
+      plan: matched.plan || 'pro',
+      role: matched.role || 'member',
       provider: 'email',
-      createdAt: Date.now()
+      createdAt: matched.createdAt
     };
-    setUser(emailUser);
+
+    setUser(authUser);
     setIsLoading(false);
   };
 
-  const signupWithEmail = async (name: string, email: string, _password?: string) => {
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    const newUser: AuthUser = {
-      id: 'usr_reg_' + Math.random().toString(36).substring(2, 9),
-      name: name.trim() || 'New User',
-      email: email.trim().toLowerCase(),
-      plan: 'free',
-      provider: 'email',
-      createdAt: Date.now()
-    };
-    setUser(newUser);
-    setIsLoading(false);
+  const addAuthorizedAccount = (account: Omit<AuthorizedAccount, 'id' | 'createdAt'> & { id?: string }) => {
+    const created = saveAuthorizedUser(account);
+    setAuthorizedUsers(getAuthorizedUsers());
+    return created;
   };
 
-  const quickLoginAs = (preset: Partial<AuthUser>) => {
-    const fullUser: AuthUser = {
-      id: preset.id || 'usr_' + Math.random().toString(36).substring(2, 9),
-      name: preset.name || 'Demo User',
-      email: preset.email || 'demo@claude.ai',
-      plan: preset.plan || 'pro',
-      provider: preset.provider || 'email',
-      createdAt: Date.now()
-    };
-    setUser(fullUser);
+  const deleteAuthorizedAccount = (idOrEmail: string) => {
+    deleteAuthorizedUser(idOrEmail);
+    setAuthorizedUsers(getAuthorizedUsers());
   };
 
   const logout = () => {
@@ -135,10 +141,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         isAuthenticated: !!user,
         isLoading,
+        authorizedUsers,
         loginWithGoogle,
         loginWithEmail,
-        signupWithEmail,
-        quickLoginAs,
+        addAuthorizedAccount,
+        deleteAuthorizedAccount,
         logout,
         updateUser
       }}

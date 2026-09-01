@@ -238,6 +238,18 @@ export interface AuthUser {
   email: string;
   avatarUrl?: string;
   plan: UserPlanTier;
+  role?: 'admin' | 'member';
   createdAt?: number;
   provider?: 'google' | 'email' | 'guest';
 }
+
+export interface AuthorizedAccount {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  plan: UserPlanTier;
+  role: 'admin' | 'member';
+  createdAt: number;
+}
+
