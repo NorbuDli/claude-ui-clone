@@ -104,7 +104,7 @@ export const AddContentDropdown: React.FC<AddContentDropdownProps> = ({
   return (
     <div
       ref={dropdownRef}
-      className={`absolute left-0 w-64 bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150 select-none text-xs text-[#ECEBE7] ${
+      className={`absolute left-0 w-64 bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl p-1.5 z-50 duration-75 select-none text-xs text-[#ECEBE7] ${
         placement === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'
       }`}
       onClick={(e) => e.stopPropagation()}

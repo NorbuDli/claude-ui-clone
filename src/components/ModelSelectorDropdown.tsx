@@ -227,7 +227,7 @@ export const ModelSelectorDropdown: React.FC = () => {
             onMouseLeave={() => {
               effortTimerRef.current = setTimeout(() => {
                 setActiveSubmenu((prev) => (prev === 'effort' ? null : prev));
-              }, 200);
+              }, 60);
             }}
           >
             <div
@@ -248,7 +248,7 @@ export const ModelSelectorDropdown: React.FC = () => {
             {/* EFFORT SUBMENU PANEL */}
             {activeSubmenu === 'effort' && (
               <div
-                className={`absolute right-full mr-1.5 w-[260px] bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl p-2.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-100 space-y-2 select-none ${
+                className={`absolute right-full mr-1.5 w-[260px] bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl p-2.5 z-50 text-xs duration-75 space-y-2 select-none ${
                   placement === 'bottom' ? 'top-0' : 'bottom-0'
                 }`}
                 onMouseEnter={() => clearTimeout(effortTimerRef.current)}
@@ -335,7 +335,7 @@ export const ModelSelectorDropdown: React.FC = () => {
             onMouseLeave={() => {
               moreTimerRef.current = setTimeout(() => {
                 setActiveSubmenu((prev) => (prev === 'more-models' ? null : prev));
-              }, 200);
+              }, 60);
             }}
           >
             <div
@@ -351,7 +351,7 @@ export const ModelSelectorDropdown: React.FC = () => {
             {/* MORE MODELS NESTED SUBMENU */}
             {activeSubmenu === 'more-models' && (
               <div
-                className={`absolute right-full mr-1.5 w-[220px] bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl p-1.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-100 ${
+                className={`absolute right-full mr-1.5 w-[220px] bg-[#1C1B19] border border-[#2E2D2A] rounded-2xl shadow-2xl p-1.5 z-50 text-xs duration-75 ${
                   placement === 'bottom' ? 'top-0' : 'bottom-0'
                 }`}
                 onMouseEnter={() => clearTimeout(moreTimerRef.current)}

@@ -19,5 +19,30 @@ export default defineConfig({
     port: 3000,
     open: false,
     host: true
+  },
+  build: {
+    target: 'esnext',
+    minify: 'esbuild',
+    cssCodeSplit: true,
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-icons': ['lucide-react'],
+          'vendor-markdown': [
+            'react-markdown',
+            'rehype-highlight',
+            'rehype-katex',
+            'rehype-raw',
+            'remark-gfm',
+            'remark-math'
+          ],
+          'vendor-katex': ['katex'],
+          'vendor-motion': ['framer-motion']
+        }
+      }
+    }
   }
 });
+
