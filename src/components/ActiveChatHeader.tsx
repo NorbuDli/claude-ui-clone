@@ -135,7 +135,7 @@ export const ActiveChatHeader: React.FC<ActiveChatHeaderProps> = ({
                 {/* Title Context Menu */}
                 {isTitleMenuOpen && (
                   <div
-                    className="absolute top-full left-0 mt-1 w-44 bg-[#1C1B19] border border-[#2E2D2A] rounded-xl shadow-2xl p-1 z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
+                    className="absolute top-full left-0 mt-1 w-44 bg-[#1C1B19] border border-[#2E2D2A] rounded-xl shadow-2xl p-1 z-50 text-xs"
                     onClick={() => setIsTitleMenuOpen(false)}
                   >
                     <button

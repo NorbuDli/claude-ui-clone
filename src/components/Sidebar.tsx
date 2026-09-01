@@ -362,7 +362,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, onOpenSearch
                                 {isContextOpen && (
                                   <div
                                     ref={contextMenuRef}
-                                    className="absolute right-2 top-8 w-36 bg-[#1C1B19] border border-[#2E2D2A] rounded-xl shadow-2xl p-1 z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
+                                    className="absolute right-2 top-8 w-36 bg-[#1C1B19] border border-[#2E2D2A] rounded-xl shadow-2xl p-1 z-50 text-xs"
                                     onClick={(e) => e.stopPropagation()}
                                     role="menu"
                                   >
@@ -519,7 +519,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, onOpenSearch
                       {isContextOpen && (
                         <div
                           ref={contextMenuRef}
-                          className="absolute right-2 top-8 w-36 bg-[#1C1B19] border border-[#2E2D2A] rounded-xl shadow-2xl p-1 z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
+                          className="absolute right-2 top-8 w-36 bg-[#1C1B19] border border-[#2E2D2A] rounded-xl shadow-2xl p-1 z-50 text-xs"
                           onClick={(e) => e.stopPropagation()}
                           role="menu"
                         >
