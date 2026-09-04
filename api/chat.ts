@@ -175,8 +175,8 @@ Provide a brief, helpful explanation in your chat text, and put the full impleme
           let userFriendlyMsg = parsedMsg;
           if (response.status === 401) {
             userFriendlyMsg = 'Invalid OpenRouter API key. Please check your server environment variables.';
-          } else if (response.status === 402) {
-            userFriendlyMsg = 'OpenRouter account has insufficient credits for this request.';
+          } else if (response.status === 402 || parsedMsg.toLowerCase().includes('insufficient balance') || parsedMsg.toLowerCase().includes('balance=0')) {
+            userFriendlyMsg = 'OpenRouter account balance is $0 (insufficient credits). To use models like DeepSeek, please add credits at https://openrouter.ai/credits, or set OPENROUTER_MODEL to an active free model (e.g. minimax/minimax-m3:free).';
           } else if (response.status === 429) {
             userFriendlyMsg = 'OpenRouter rate limit reached. Please try again shortly.';
           } else if (response.status === 404) {
