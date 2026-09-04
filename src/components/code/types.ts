@@ -5,6 +5,7 @@ export interface CodeFile {
   content: string;
   language: string;
   isFolder?: false;
+  handle?: FileSystemFileHandle;
 }
 
 export interface CodeFolder {
@@ -14,6 +15,7 @@ export interface CodeFolder {
   isFolder: true;
   children: Array<CodeFile | CodeFolder>;
   isOpen?: boolean;
+  handle?: FileSystemDirectoryHandle;
 }
 
 export type FileSystemNode = CodeFile | CodeFolder;
@@ -21,8 +23,10 @@ export type FileSystemNode = CodeFile | CodeFolder;
 export interface CodeProject {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   isDemo?: boolean;
+  isLocalDisk?: boolean;
+  directoryHandle?: FileSystemDirectoryHandle;
   files: FileSystemNode[];
   activeFileId: string;
   openFileIds: string[];

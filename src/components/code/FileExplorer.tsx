@@ -23,6 +23,7 @@ import { FileSystemNode, CodeFile, CodeFolder } from './types';
 interface FileExplorerProps {
   files: FileSystemNode[];
   activeFileId: string;
+  unsavedFileIds?: Set<string>;
   isDemo?: boolean;
   onSelectFile: (fileId: string) => void;
   onCreateFile: (name: string, parentPath?: string) => void;
@@ -36,6 +37,7 @@ interface FileExplorerProps {
 export const FileExplorer: React.FC<FileExplorerProps> = ({
   files,
   activeFileId,
+  unsavedFileIds,
   isDemo,
   onSelectFile,
   onCreateFile,
@@ -221,7 +223,12 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               />
             </form>
           ) : (
-            <span className="truncate">{node.name}</span>
+            <span className="truncate flex items-center gap-1">
+              <span>{node.name}</span>
+              {unsavedFileIds?.has(node.id) && (
+                <span className="text-[#DA7756] font-bold text-xs" title="Unsaved changes">*</span>
+              )}
+            </span>
           )}
         </div>
 

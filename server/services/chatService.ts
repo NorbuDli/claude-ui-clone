@@ -25,21 +25,43 @@ export async function handleStreamingChat(
   payload: ChatRequestPayload,
   writeChunk: (event: string, data: any) => void
 ): Promise<void> {
-  // Support any custom API key variable
-  const apiKey =
-    process.env.API_KEY?.trim() ||
-    process.env.AI_API_KEY?.trim() ||
-    process.env.DEEPSEEK_API_KEY?.trim() ||
-    process.env.OPENAI_API_KEY?.trim() ||
-    '';
+  // Support OpenRouter as primary provider, plus custom fallbacks
+  const apiKey = (
+    process.env.OPENROUTER_API_KEY ||
+    process.env.API_KEY ||
+    process.env.AI_API_KEY ||
+    process.env.DEEPSEEK_API_KEY ||
+    process.env.OPENAI_API_KEY ||
+    ''
+  ).trim();
 
-  // Support any custom API Base URL (e.g., https://api.b.ai/v1)
-  const rawBaseUrl =
-    process.env.API_BASE_URL?.trim() ||
-    process.env.AI_BASE_URL?.trim() ||
-    process.env.DEEPSEEK_BASE_URL?.trim() ||
-    process.env.OPENAI_BASE_URL?.trim() ||
-    'https://api.deepseek.com/v1';
+  // Support any custom API Base URL
+  const rawBaseUrl = (
+    process.env.OPENROUTER_BASE_URL ||
+    process.env.API_BASE_URL ||
+    process.env.AI_BASE_URL ||
+    process.env.DEEPSEEK_BASE_URL ||
+    process.env.OPENAI_BASE_URL ||
+    (process.env.OPENROUTER_API_KEY || apiKey.startsWith('sk-or-') ? 'https://openrouter.ai/api/v1' : 'https://api.deepseek.com/v1')
+  ).trim();
+
+  const isOpenRouter = rawBaseUrl.includes('openrouter.ai') || apiKey.startsWith('sk-or-');
+
+  const OPENROUTER_MODEL_MAP: Record<string, string> = {
+    'fable-5': 'anthropic/claude-3.5-sonnet',
+    'opus-5': 'anthropic/claude-3-opus',
+    'sonnet-5': 'anthropic/claude-3.5-sonnet',
+    'haiku-4.5': 'anthropic/claude-3.5-haiku',
+    'opus-4.8': 'anthropic/claude-3-opus',
+    'opus-4.7': 'anthropic/claude-3-opus',
+    'opus-4.6': 'anthropic/claude-3-opus',
+    'opus-3': 'anthropic/claude-3-opus',
+    'sonnet-4.5': 'anthropic/claude-3.5-sonnet',
+    'haiku-3.5': 'anthropic/claude-3.5-haiku',
+    'claude-3-5-sonnet': 'anthropic/claude-3.5-sonnet',
+    'claude-3-opus': 'anthropic/claude-3-opus',
+    'standard': 'anthropic/claude-3.5-sonnet'
+  };
 
   const requestedProfile = payload.profile || 'standard';
 
@@ -48,8 +70,10 @@ export async function handleStreamingChat(
     (m) => m.attachments && m.attachments.some((a) => a.dataUrl && a.dataUrl.startsWith('data:image/'))
   );
 
-  // Model resolution: use environment variable override (e.g. gpt-5.2) or map profile
-  let backendModel = resolveBackendModel(requestedProfile, hasImages);
+  // Model resolution: use environment variable override or map profile
+  let backendModel = isOpenRouter
+    ? (process.env.OPENROUTER_MODEL || OPENROUTER_MODEL_MAP[requestedProfile] || 'anthropic/claude-3.5-sonnet')
+    : resolveBackendModel(requestedProfile, hasImages);
 
   if (apiKey) {
     // Format messages for API
@@ -154,13 +178,20 @@ Provide a brief, helpful explanation in your chat text, and put the full impleme
       requestPayload.max_tokens = parseInt(process.env.AI_MAX_TOKENS, 10);
     }
 
+    const requestHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`
+    };
+
+    if (isOpenRouter) {
+      requestHeaders['HTTP-Referer'] = 'https://claude.ai';
+      requestHeaders['X-Title'] = 'Claude UI';
+    }
+
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`
-        },
+        headers: requestHeaders,
         body: JSON.stringify(requestPayload)
       });
 
