@@ -24,14 +24,25 @@ export async function handleStreamingChat(
   payload: ChatRequestPayload,
   writeChunk: (event: string, data: any) => void
 ): Promise<void> {
-  // OpenRouter configuration (Secret kept server-side only)
-  const apiKey = (process.env.OPENROUTER_API_KEY || process.env.API_KEY || '').trim();
-  const rawBaseUrl = (process.env.OPENROUTER_BASE_URL || process.env.API_BASE_URL || 'https://openrouter.ai/api/v1').trim();
-  const backendModel = (process.env.OPENROUTER_MODEL || process.env.API_MODEL || 'deepseek/deepseek-v4-flash:free').trim();
+  // AI Provider configuration (Supports Groq 100% Free 120B or OpenRouter; secret kept server-side only)
+  const apiKey = (process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY || process.env.API_KEY || '').trim();
+  const isGroq = apiKey.startsWith('gsk_');
+  const rawBaseUrl = (
+    process.env.OPENROUTER_BASE_URL ||
+    process.env.GROQ_BASE_URL ||
+    process.env.API_BASE_URL ||
+    (isGroq ? 'https://api.groq.com/openai/v1' : 'https://openrouter.ai/api/v1')
+  ).trim();
+  const backendModel = (
+    process.env.OPENROUTER_MODEL ||
+    process.env.GROQ_MODEL ||
+    process.env.API_MODEL ||
+    (isGroq ? 'openai/gpt-oss-120b' : 'deepseek/deepseek-v4-flash:free')
+  ).trim();
 
   if (!apiKey) {
     writeChunk('error', {
-      error: 'OpenRouter API key is not configured. Please set OPENROUTER_API_KEY in your .env file.'
+      error: 'AI API key is not configured. Please set OPENROUTER_API_KEY or GROQ_API_KEY in your .env file.'
     });
     return;
   }

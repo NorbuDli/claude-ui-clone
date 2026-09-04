@@ -109,9 +109,14 @@ export const MODEL_ROUTER: Record<string, ModelProfileConfig> = {
  * Defaults to deepseek/deepseek-v4-flash:free.
  */
 export function resolveBackendModel(profileId?: string, hasImages: boolean = false): string {
-  const envModel = process.env.OPENROUTER_MODEL || process.env.API_MODEL;
+  const envModel = process.env.OPENROUTER_MODEL || process.env.GROQ_MODEL || process.env.API_MODEL;
   if (envModel) {
     return envModel.trim();
+  }
+
+  const apiKey = (process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY || process.env.API_KEY || '').trim();
+  if (apiKey.startsWith('gsk_')) {
+    return 'openai/gpt-oss-120b';
   }
 
   return 'deepseek/deepseek-v4-flash:free';
