@@ -40,7 +40,7 @@ export const ClaudeAssistantPanel: React.FC<ClaudeAssistantPanelProps> = ({
   const [activeTab, setActiveTab] = useState<'console' | 'problems' | 'claude'>('claude');
   const [inputPrompt, setInputPrompt] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('GPT-OSS 120B (Free)');
+  const [selectedModel, setSelectedModel] = useState('Auto (Best Free Coding Model)');
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -479,8 +479,8 @@ When modifying or proposing code changes:
                       </button>
 
                       {isModelDropdownOpen && (
-                        <div className="absolute right-0 bottom-full mb-1 w-52 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs">
-                          {['GPT-OSS 120B (Free)', 'Qwen 3.8 27B (Free)', 'Claude 3.7 Sonnet', 'Claude 3.5 Sonnet'].map((m) => (
+                        <div className="absolute right-0 bottom-full mb-1 w-56 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs">
+                          {['Auto (Best Free Coding Model)', 'Poolside Laguna S 2.1 (Free)', 'Cohere North Mini Code (Free)', 'MiniMax M3 (Free)'].map((m) => (
                             <button
                               key={m}
                               type="button"
