@@ -40,7 +40,7 @@ export const ClaudeAssistantPanel: React.FC<ClaudeAssistantPanelProps> = ({
   const [activeTab, setActiveTab] = useState<'console' | 'problems' | 'claude'>('claude');
   const [inputPrompt, setInputPrompt] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('Claude 3.5 Sonnet');
+  const [selectedModel, setSelectedModel] = useState('DeepSeek V4 Flash (Free)');
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -479,8 +479,8 @@ When modifying or proposing code changes:
                       </button>
 
                       {isModelDropdownOpen && (
-                        <div className="absolute right-0 bottom-full mb-1 w-44 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs">
-                          {['Claude 3.5 Sonnet', 'Claude 3.7 Sonnet', 'Claude 3 Opus'].map((m) => (
+                        <div className="absolute right-0 bottom-full mb-1 w-52 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs">
+                          {['DeepSeek V4 Flash (Free)', 'Claude 3.5 Sonnet', 'Claude 3.7 Sonnet', 'Claude 3 Opus'].map((m) => (
                             <button
                               key={m}
                               type="button"

@@ -16,7 +16,7 @@ export const MODEL_ROUTER: Record<string, ModelProfileConfig> = {
     id: 'fable-5',
     displayName: 'Fable 5',
     description: 'For your toughest challenges',
-    backendModel: 'deepseek-v4-flash',
+    backendModel: 'deepseek/deepseek-v4-flash:free',
     speed: 'Deep',
     reasoning: 'Maximum',
     isPro: true,
@@ -28,7 +28,7 @@ export const MODEL_ROUTER: Record<string, ModelProfileConfig> = {
     id: 'opus-5',
     displayName: 'Opus 5',
     description: 'For complex tasks',
-    backendModel: 'deepseek-v4-flash',
+    backendModel: 'deepseek/deepseek-v4-flash:free',
     speed: 'Deep',
     reasoning: 'Advanced',
     isPro: true,
@@ -39,7 +39,7 @@ export const MODEL_ROUTER: Record<string, ModelProfileConfig> = {
     id: 'sonnet-5',
     displayName: 'Sonnet 5',
     description: 'Most efficient for everyday tasks',
-    backendModel: 'deepseek-v4-flash',
+    backendModel: 'deepseek/deepseek-v4-flash:free',
     speed: 'Fast',
     reasoning: 'Balanced',
     supportsThinking: true
@@ -48,7 +48,7 @@ export const MODEL_ROUTER: Record<string, ModelProfileConfig> = {
     id: 'haiku-4.5',
     displayName: 'Haiku 4.5',
     description: 'Fastest for quick answers',
-    backendModel: 'deepseek-v4-flash',
+    backendModel: 'deepseek/deepseek-v4-flash:free',
     speed: 'Ultra-Fast',
     reasoning: 'Light',
     supportsThinking: false
@@ -57,7 +57,7 @@ export const MODEL_ROUTER: Record<string, ModelProfileConfig> = {
     id: 'opus-4.8',
     displayName: 'Opus 4.8',
     description: 'Legacy high-capacity reasoning',
-    backendModel: 'deepseek-v4-flash',
+    backendModel: 'deepseek/deepseek-v4-flash:free',
     speed: 'Deep',
     reasoning: 'Advanced',
     isPro: true,
@@ -67,7 +67,7 @@ export const MODEL_ROUTER: Record<string, ModelProfileConfig> = {
     id: 'opus-4.7',
     displayName: 'Opus 4.7',
     description: 'Legacy analytical model',
-    backendModel: 'deepseek-v4-flash',
+    backendModel: 'deepseek/deepseek-v4-flash:free',
     speed: 'Moderate',
     reasoning: 'Advanced',
     isPro: true,
@@ -77,7 +77,7 @@ export const MODEL_ROUTER: Record<string, ModelProfileConfig> = {
     id: 'opus-4.6',
     displayName: 'Opus 4.6',
     description: 'High context reasoning',
-    backendModel: 'deepseek-v4-flash',
+    backendModel: 'deepseek/deepseek-v4-flash:free',
     speed: 'Moderate',
     reasoning: 'Advanced',
     isPro: true,
@@ -87,7 +87,7 @@ export const MODEL_ROUTER: Record<string, ModelProfileConfig> = {
     id: 'opus-3',
     displayName: 'Opus 3',
     description: 'Deep creative and writing engine',
-    backendModel: 'deepseek-v4-flash',
+    backendModel: 'deepseek/deepseek-v4-flash:free',
     speed: 'Moderate',
     reasoning: 'Standard',
     isPro: true,
@@ -97,7 +97,7 @@ export const MODEL_ROUTER: Record<string, ModelProfileConfig> = {
     id: 'sonnet-4.5',
     displayName: 'Sonnet 4.5',
     description: 'Fast versatile balance',
-    backendModel: 'deepseek-v4-flash',
+    backendModel: 'deepseek/deepseek-v4-flash:free',
     speed: 'Fast',
     reasoning: 'Balanced',
     supportsThinking: true
@@ -105,21 +105,16 @@ export const MODEL_ROUTER: Record<string, ModelProfileConfig> = {
 };
 
 /**
- * Resolves the appropriate backend model.
- * If image attachments exist, automatically routes to deepseek-v4-flash-vision-exp.
- * Otherwise strictly routes to deepseek-v4-flash.
+ * Resolves the appropriate backend model from OpenRouter configuration.
+ * Defaults to deepseek/deepseek-v4-flash:free.
  */
-export function resolveBackendModel(profileId: string, hasImages: boolean = false): string {
-  if (hasImages) {
-    return process.env.API_VISION_MODEL || process.env.DEEPSEEK_VISION_MODEL || 'deepseek-v4-flash-vision-exp';
-  }
-
-  const envModel = process.env.API_MODEL || process.env.DEEPSEEK_MODEL || process.env.AI_MODEL || process.env.MODEL;
+export function resolveBackendModel(profileId?: string, hasImages: boolean = false): string {
+  const envModel = process.env.OPENROUTER_MODEL || process.env.API_MODEL;
   if (envModel) {
     return envModel.trim();
   }
 
-  return 'deepseek-v4-flash';
+  return 'deepseek/deepseek-v4-flash:free';
 }
 
 /**
