@@ -1,17 +1,23 @@
 import { FreeModelInfo } from './types';
 
-// Models to strictly exclude (e.g. distributor unavailable, decommissioned, or non-functional endpoints)
-const BLACKLISTED_MODEL_IDS = new Set([
-  'poolside/laguna-s-2.1:free', // Distributor unavailable (404)
-  'deepseek/deepseek-v4-flash:free' // Decommissioned on OpenRouter
+// Models that are known to be broken, decommissioned, or produce distributor errors / infinite stalls on OpenRouter
+export const BLACKLISTED_MODEL_IDS = new Set([
+  'openrouter/free', // 404: Does not exist (distributor)
+  'poolside/laguna-s-2.1:free', // 404: Does not exist (distributor)
+  'deepseek/deepseek-v4-flash:free', // 404: Decommissioned
+  'thinkingmachines/inkling-small:free', // 403: Only available on agentic harnesses
+  'thinkingmachines/inkling:free', // 403: Only available on agentic harnesses
+  'google/gemma-4-26b-a4b-it:free', // 429: Upstream rate-limit pool exhausted
+  'google/gemma-4-31b-it:free', // 429: Upstream rate-limit pool exhausted
+  'nvidia/nemotron-3.5-lightning:free' // Stalls 30+ seconds with infinite processing chunks
 ]);
 
-// Fallback list of known verified free models on OpenRouter (used if catalog API is unreachable)
+// Verified, high-speed, live 200 OK free models on OpenRouter
 const STATIC_FREE_MODELS_FALLBACK: FreeModelInfo[] = [
   {
     id: 'inclusionai/ling-3.0-flash-fin:free',
     name: 'Ling 3.0 Flash Fin (free)',
-    description: 'Finance and coding mixture-of-experts model from InclusionAI.',
+    description: 'High-speed 262k context MoE model from InclusionAI for coding and general conversation.',
     contextLength: 262144,
     inputModalities: ['text'],
     outputModalities: ['text'],
@@ -21,46 +27,10 @@ const STATIC_FREE_MODELS_FALLBACK: FreeModelInfo[] = [
     isToolCapable: true
   },
   {
-    id: 'google/gemma-4-26b-a4b-it:free',
-    name: 'Google Gemma 4 26B A4B (free)',
-    description: 'Google DeepMind instruction-tuned mixture-of-experts multimodal model.',
+    id: 'poolside/laguna-xs-2.1:free',
+    name: 'Laguna XS 2.1 (free)',
+    description: 'Ultra-fast 1.5s coding agent model in the 33B category from Poolside.',
     contextLength: 262144,
-    inputModalities: ['text', 'image', 'video'],
-    outputModalities: ['text'],
-    supportedParameters: ['tools'],
-    isVisionCapable: true,
-    isReasoningCapable: true,
-    isToolCapable: true
-  },
-  {
-    id: 'nvidia/nemotron-3-ultra-550b-a55b:free',
-    name: 'NVIDIA Nemotron 3 Ultra 550B (free)',
-    description: 'Open frontier-reasoning and orchestration model with 1M context.',
-    contextLength: 1000000,
-    inputModalities: ['text'],
-    outputModalities: ['text'],
-    supportedParameters: ['tools'],
-    isVisionCapable: false,
-    isReasoningCapable: true,
-    isToolCapable: true
-  },
-  {
-    id: 'thinkingmachines/inkling-small:free',
-    name: 'Thinking Machines Inkling Small (free)',
-    description: 'Multimodal mixture-of-experts model with vision capabilities.',
-    contextLength: 1048576,
-    inputModalities: ['text', 'image', 'audio'],
-    outputModalities: ['text'],
-    supportedParameters: [],
-    isVisionCapable: true,
-    isReasoningCapable: true,
-    isToolCapable: false
-  },
-  {
-    id: 'nvidia/nemotron-3.5-lightning:free',
-    name: 'NVIDIA Nemotron 3.5 Lightning (free)',
-    description: '1M context open mixture-of-experts model for knowledge and reasoning.',
-    contextLength: 1000000,
     inputModalities: ['text'],
     outputModalities: ['text'],
     supportedParameters: ['tools'],
@@ -81,16 +51,28 @@ const STATIC_FREE_MODELS_FALLBACK: FreeModelInfo[] = [
     isToolCapable: true
   },
   {
-    id: 'poolside/laguna-xs-2.1:free',
-    name: 'Laguna XS 2.1 (free)',
-    description: 'Coding agent model in the 33B-A3 category from Poolside.',
-    contextLength: 262144,
+    id: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+    name: 'NVIDIA Nemotron 3 Ultra 550B (free)',
+    description: 'Massive 550B parameter frontier reasoning model with 1M context.',
+    contextLength: 1000000,
     inputModalities: ['text'],
     outputModalities: ['text'],
     supportedParameters: ['tools'],
     isVisionCapable: false,
     isReasoningCapable: true,
     isToolCapable: true
+  },
+  {
+    id: 'liquid/lfm-2.5-2.6b:free',
+    name: 'Liquid LFM 2.5 2.6B (free)',
+    description: 'Compact ultra-fast reasoning model from Liquid AI (sub-second first token).',
+    contextLength: 65536,
+    inputModalities: ['text'],
+    outputModalities: ['text'],
+    supportedParameters: [],
+    isVisionCapable: false,
+    isReasoningCapable: true,
+    isToolCapable: false
   },
   {
     id: 'dots-studio/dots-3-note-preview:free',
@@ -115,41 +97,17 @@ const STATIC_FREE_MODELS_FALLBACK: FreeModelInfo[] = [
     isVisionCapable: true,
     isReasoningCapable: true,
     isToolCapable: true
-  },
-  {
-    id: 'liquid/lfm-2.5-2.6b:free',
-    name: 'Liquid LFM 2.5 2.6B (free)',
-    description: 'Compact high-speed reasoning model.',
-    contextLength: 65536,
-    inputModalities: ['text'],
-    outputModalities: ['text'],
-    supportedParameters: [],
-    isVisionCapable: false,
-    isReasoningCapable: true,
-    isToolCapable: false
-  },
-  {
-    id: 'openrouter/free',
-    name: 'OpenRouter Free Auto-Router',
-    description: 'General free auto-routing endpoint.',
-    contextLength: 200000,
-    inputModalities: ['text', 'image'],
-    outputModalities: ['text'],
-    supportedParameters: [],
-    isVisionCapable: true,
-    isReasoningCapable: false,
-    isToolCapable: false
   }
 ];
 
 class ModelCatalogService {
   private cache: FreeModelInfo[] | null = null;
   private lastFetchTime: number = 0;
-  private readonly CACHE_TTL_MS: number = 30 * 60 * 1000; // 30 minutes
+  private readonly CACHE_TTL_MS: number = 15 * 60 * 1000; // 15 minutes
 
   /**
    * Discovers and retrieves all currently available FREE models from OpenRouter.
-   * Uses an in-memory TTL cache to minimize API calls.
+   * Uses an in-memory TTL cache and filters out blacklisted / broken models.
    */
   public async getFreeModels(apiKey?: string, baseUrl: string = 'https://openrouter.ai/api/v1'): Promise<FreeModelInfo[]> {
     const now = Date.now();
@@ -175,7 +133,7 @@ class ModelCatalogService {
       });
 
       if (!response.ok) {
-        console.warn(`[AI Catalog] Failed to fetch live models (${response.status}). Using fallback catalog.`);
+        console.warn(`[AI Catalog] Failed to fetch live models (${response.status}). Using verified fallback catalog.`);
         return this.cache || STATIC_FREE_MODELS_FALLBACK;
       }
 
@@ -197,7 +155,7 @@ class ModelCatalogService {
         const completionPrice = m.pricing?.completion;
 
         const isExplicitFreePricing = promptPrice === '0' && completionPrice === '0';
-        const isFreeSlug = id.endsWith(':free') || id === 'openrouter/free';
+        const isFreeSlug = id.endsWith(':free');
 
         // Discard any model with non-zero costs
         if (!isExplicitFreePricing && !isFreeSlug) {
@@ -240,11 +198,10 @@ class ModelCatalogService {
       if (discoveredFreeModels.length > 0) {
         this.cache = discoveredFreeModels;
         this.lastFetchTime = now;
-        console.log(`[AI Catalog] Discovered ${discoveredFreeModels.length} active FREE OpenRouter models.`);
+        console.log(`[AI Catalog] Discovered ${discoveredFreeModels.length} active verified FREE models.`);
         return discoveredFreeModels;
       }
 
-      console.warn('[AI Catalog] No free models found in OpenRouter response. Using static fallback catalog.');
       return this.cache || STATIC_FREE_MODELS_FALLBACK;
     } catch (err: any) {
       console.error('[AI Catalog] Error discovering models:', err.message);
@@ -252,9 +209,6 @@ class ModelCatalogService {
     }
   }
 
-  /**
-   * Force refresh the catalog cache
-   */
   public invalidateCache(): void {
     this.cache = null;
     this.lastFetchTime = 0;

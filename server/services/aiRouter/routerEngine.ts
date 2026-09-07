@@ -1,5 +1,5 @@
 import { ChatRequestPayload, RouterDecision } from './types';
-import { modelCatalog } from './modelCatalog';
+import { modelCatalog, BLACKLISTED_MODEL_IDS } from './modelCatalog';
 import { TaskClassifier } from './taskClassifier';
 import { ModelRanker } from './modelRanker';
 import { cooldownManager } from './cooldownManager';
@@ -90,8 +90,9 @@ Mode            : ${isOverride ? 'MANUAL_OVERRIDE' : 'AUTO_ROUTING'}
       'X-Title': 'Claude UI'
     };
 
-    // 5. Fallback Execution Loop
-    const candidateChain = [primaryModel, ...fallbackModels];
+    // 5. Fallback Execution Loop (Strictly filter out blacklisted models)
+    const rawChain = [primaryModel, ...fallbackModels];
+    const candidateChain = rawChain.filter((c) => c && !BLACKLISTED_MODEL_IDS.has(c));
     let lastError: string = '';
     let success = false;
 
