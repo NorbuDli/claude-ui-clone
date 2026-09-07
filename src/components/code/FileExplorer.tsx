@@ -56,6 +56,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [newDialogType, setNewDialogType] = useState<'file' | 'folder' | null>(null);
+  const [newDialogParentPath, setNewDialogParentPath] = useState<string | undefined>(undefined);
   const [newItemName, setNewItemName] = useState('');
   const [isRenamingId, setIsRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -95,12 +96,13 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     e.preventDefault();
     if (!newItemName.trim()) return;
     if (newDialogType === 'file') {
-      onCreateFile(newItemName.trim());
+      onCreateFile(newItemName.trim(), newDialogParentPath);
     } else if (newDialogType === 'folder') {
-      onCreateFolder(newItemName.trim());
+      onCreateFolder(newItemName.trim(), newDialogParentPath);
     }
     setNewItemName('');
     setNewDialogType(null);
+    setNewDialogParentPath(undefined);
   };
 
   const handleRenameSubmit = (id: string, e: React.FormEvent) => {
@@ -157,6 +159,17 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             </div>
 
             <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setNewDialogParentPath(node.path);
+                  setNewDialogType('file');
+                }}
+                className="p-0.5 hover:text-[#DA7756] text-[#706E68]"
+                title={`New file in ${node.name}`}
+              >
+                <FilePlus className="w-3 h-3" />
+              </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -366,18 +379,35 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 
       {/* Inline Create Input if active */}
       {newDialogType && (
-        <form onSubmit={handleCreateSubmit} className="mx-2.5 mb-2 p-2 bg-[#1C1B19] border border-[#DA7756] rounded-xl flex items-center gap-2">
-          {newDialogType === 'file' ? <FilePlus className="w-3.5 h-3.5 text-[#DA7756]" /> : <FolderPlus className="w-3.5 h-3.5 text-[#EAB308]" />}
-          <input
-            type="text"
-            placeholder={newDialogType === 'file' ? 'filename.tsx' : 'folder name'}
-            value={newItemName}
-            onChange={(e) => setNewItemName(e.target.value)}
-            autoFocus
-            className="flex-1 bg-transparent text-xs text-white outline-none"
-          />
-          <button type="submit" className="text-[11px] font-semibold text-[#DA7756] hover:underline">Add</button>
-          <button type="button" onClick={() => setNewDialogType(null)} className="text-[#8C8A82] hover:text-white"><X className="w-3 h-3" /></button>
+        <form onSubmit={handleCreateSubmit} className="mx-2.5 mb-2 p-2 bg-[#1C1B19] border border-[#DA7756] rounded-xl flex flex-col gap-1.5 shadow-lg">
+          {newDialogParentPath && (
+            <div className="text-[10px] text-[#8C8A82] font-mono flex items-center gap-1">
+              <Folder className="w-3 h-3 text-[#EAB308]" />
+              <span>In: {newDialogParentPath}/</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            {newDialogType === 'file' ? <FilePlus className="w-3.5 h-3.5 text-[#DA7756] shrink-0" /> : <FolderPlus className="w-3.5 h-3.5 text-[#EAB308] shrink-0" />}
+            <input
+              type="text"
+              placeholder={newDialogType === 'file' ? 'filename.tsx or path/file.tsx' : 'folder name'}
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              autoFocus
+              className="flex-1 bg-transparent text-xs text-white outline-none font-mono"
+            />
+            <button type="submit" className="text-[11px] font-semibold text-[#DA7756] hover:underline">Add</button>
+            <button
+              type="button"
+              onClick={() => {
+                setNewDialogType(null);
+                setNewDialogParentPath(undefined);
+              }}
+              className="text-[#8C8A82] hover:text-white"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
         </form>
       )}
 

@@ -11,11 +11,15 @@ import {
   X,
   ChevronDown,
   Trash2,
-  Check
+  Check,
+  FilePlus,
+  Edit2,
+  CheckCircle2,
+  Layers
 } from 'lucide-react';
 import { DiffViewer } from './DiffViewer';
-import { computeUnifiedDiff, extractCodeBlocksFromAIResponse } from './diffUtils';
-import { CodeProject, CodeFile, DiffProposal, ConsoleLog, ProblemItem, AssistantMessage } from './types';
+import { computeUnifiedDiff, extractCodeBlocksFromAIResponse, inferFileOperation } from './diffUtils';
+import { CodeProject, CodeFile, DiffProposal, ConsoleLog, ProblemItem, AssistantMessage, FileOperationProposal } from './types';
 import { ChatApiClient } from '../../services/apiClient';
 
 interface ClaudeAssistantPanelProps {
@@ -25,8 +29,149 @@ interface ClaudeAssistantPanelProps {
   problems: ProblemItem[];
   onClearLogs: () => void;
   onApplyDiff: (filePath: string, newContent: string) => void;
+  onApplyFile?: (filePath: string, newContent: string) => void;
   onSelectFileByPath?: (filePath: string) => void;
 }
+
+const FileOperationCard: React.FC<{
+  operation: FileOperationProposal;
+  onAccept: (op: FileOperationProposal, customPath?: string) => void;
+  onReject: (op: FileOperationProposal) => void;
+}> = ({ operation, onAccept, onReject }) => {
+  const [isEditingPath, setIsEditingPath] = useState(false);
+  const [currentPath, setCurrentPath] = useState(operation.filePath);
+  const [showCode, setShowCode] = useState(operation.type === 'create');
+
+  if (operation.status === 'accepted') {
+    return (
+      <div className="w-full max-w-xl p-3 bg-emerald-950/20 border border-emerald-800/40 rounded-xl flex items-center justify-between text-xs text-emerald-400">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>
+            {operation.type === 'create' ? 'Created file:' : 'Updated file:'}{' '}
+            <strong className="font-mono text-white">{currentPath}</strong>
+          </span>
+        </div>
+        <span className="text-[10px] bg-emerald-900/40 px-2 py-0.5 rounded font-medium">Applied</span>
+      </div>
+    );
+  }
+
+  if (operation.status === 'rejected') {
+    return (
+      <div className="w-full max-w-xl p-2.5 bg-[#1C1B19] border border-[#2B2A27] rounded-xl flex items-center justify-between text-xs text-[#706E68]">
+        <div className="flex items-center gap-2">
+          <X className="w-3.5 h-3.5" />
+          <span>
+            Dismissed {operation.type === 'create' ? 'new file' : 'changes to'}{' '}
+            <span className="font-mono text-[#8C8A82]">{currentPath}</span>
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (operation.type === 'edit' && operation.diffLines && operation.diffLines.length > 0) {
+    const diff: DiffProposal = {
+      id: operation.id,
+      fileId: operation.id,
+      filePath: currentPath,
+      originalContent: operation.originalContent || '',
+      proposedContent: operation.proposedContent,
+      explanation: operation.explanation,
+      lines: operation.diffLines,
+      status: operation.status
+    };
+    return (
+      <div className="w-full max-w-xl space-y-1.5">
+        <div className="flex items-center justify-between px-1 text-[11px] text-[#8C8A82]">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+            <span>Modify file: <strong className="font-mono text-white">{currentPath}</strong></span>
+          </span>
+        </div>
+        <DiffViewer
+          diff={diff}
+          onAccept={() => onAccept(operation, currentPath)}
+          onReject={() => onReject(operation)}
+        />
+      </div>
+    );
+  }
+
+  // New File Creation Card
+  return (
+    <div className="w-full max-w-xl bg-[#1C1B19] border border-[#2B2A27] rounded-xl overflow-hidden text-xs shadow-lg">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3.5 py-2.5 bg-[#22211F] border-b border-[#2B2A27]">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+          <FilePlus className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          {isEditingPath ? (
+            <input
+              type="text"
+              value={currentPath}
+              onChange={(e) => setCurrentPath(e.target.value)}
+              onBlur={() => setIsEditingPath(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') setIsEditingPath(false);
+              }}
+              autoFocus
+              className="bg-[#141413] border border-[#DA7756] rounded px-1.5 py-0.5 text-xs text-white outline-none font-mono"
+            />
+          ) : (
+            <span className="font-mono font-medium text-white truncate" title={currentPath}>
+              {currentPath}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setIsEditingPath(!isEditingPath)}
+            className="text-[#706E68] hover:text-white p-0.5"
+            title="Edit target path / filename"
+          >
+            <Edit2 className="w-3 h-3" />
+          </button>
+          <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800/60 px-1.5 py-0.2 rounded font-sans font-medium">
+            New File
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowCode(!showCode)}
+            className="text-[11px] text-[#8C8A82] hover:text-white"
+          >
+            {showCode ? 'Hide Code' : 'View Code'}
+          </button>
+          <button
+            type="button"
+            onClick={() => onReject(operation)}
+            className="px-2 py-1 text-[11px] rounded-lg text-[#8C8A82] hover:text-white hover:bg-[#2A2926] transition-colors"
+          >
+            Dismiss
+          </button>
+          <button
+            type="button"
+            onClick={() => onAccept(operation, currentPath)}
+            className="px-3 py-1 rounded-lg bg-[#DA7756] hover:bg-[#C86545] text-white font-medium text-[11px] shadow flex items-center gap-1 transition-colors"
+          >
+            <Check className="w-3 h-3" />
+            <span>Create File</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Code preview block */}
+      {showCode && (
+        <div className="p-3 bg-[#141413] max-h-48 overflow-auto font-mono text-[11px] text-[#C4C3BE] leading-relaxed border-t border-[#201F1D]">
+          <pre className="whitespace-pre">{operation.proposedContent}</pre>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const ClaudeAssistantPanel: React.FC<ClaudeAssistantPanelProps> = ({
   project,
@@ -35,6 +180,7 @@ export const ClaudeAssistantPanel: React.FC<ClaudeAssistantPanelProps> = ({
   problems,
   onClearLogs,
   onApplyDiff,
+  onApplyFile,
   onSelectFileByPath
 }) => {
   const [activeTab, setActiveTab] = useState<'console' | 'problems' | 'claude'>('claude');
@@ -88,19 +234,39 @@ export const ClaudeAssistantPanel: React.FC<ClaudeAssistantPanelProps> = ({
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setIsStreaming(true);
 
+    // Flatten files helper
+    const getAllFiles = (nodes: any[]): CodeFile[] => {
+      let list: CodeFile[] = [];
+      for (const n of nodes) {
+        if (!n.isFolder) {
+          list.push(n);
+        } else if (n.children) {
+          list = list.concat(getAllFiles(n.children));
+        }
+      }
+      return list;
+    };
+
+    const allProjectFiles = getAllFiles(project.files);
+    const fileListStr = allProjectFiles.map(f => f.path).join(', ');
+
     // Build context with current active file and project structure
     const codeContext = activeFile
       ? `Active File: ${activeFile.path}\n\`\`\`${activeFile.language}\n${activeFile.content}\n\`\`\``
       : `Project: ${project.name}`;
 
-    const systemPrompt = `You are Claude Code Assistant, an expert AI software engineer.
-You are assisting with the project "${project.name}".
+    const systemPrompt = `You are Claude Code Assistant, an expert AI software engineer pair programming on the project "${project.name}".
+
+Project files:
+${fileListStr || 'None yet'}
+
 ${codeContext}
 
-When modifying or proposing code changes:
-1. Explain what you are changing.
-2. Provide the complete updated file code enclosed in standard markdown code fences with the language specified.
-3. Be concise, precise, and preserve existing functionality.`;
+CRITICAL RULES FOR CODE AND FILE GENERATION:
+1. When modifying an existing file or creating a new file, ALWAYS include the target file path in the code fence header (e.g. \`\`\`tsx:src/components/Navbar.tsx or \`\`\`typescript:src/types.ts).
+2. When the user asks you to create a component or feature (e.g. "create a navbar", "build a timer", "add dark mode"), choose an appropriate, descriptive filename and path (e.g. \`src/components/Navbar.tsx\`).
+3. Provide complete, working, production-grade code.
+4. Keep the code compatible with React 18, Tailwind CSS, and Lucide icons.`;
 
     let accumulatedText = '';
     let accumulatedThinking = '';
@@ -136,35 +302,21 @@ When modifying or proposing code changes:
           onDone: () => {
             setIsStreaming(false);
 
-            // Compute REAL Unified Diff if Claude proposed code
-            if (activeFile && accumulatedText) {
+            if (accumulatedText) {
+              const currentFiles = getAllFiles(project.files);
               const codeBlocks = extractCodeBlocksFromAIResponse(accumulatedText);
               if (codeBlocks.length > 0) {
-                const targetBlock = codeBlocks[0];
-                const diffLines = computeUnifiedDiff(activeFile.content, targetBlock.code);
-                
-                // Only create diff proposal if there are real modifications
-                const hasChanges = diffLines.some(l => l.type === 'added' || l.type === 'removed');
-                if (hasChanges) {
-                  const diffProposal: DiffProposal = {
-                    id: `diff-${Date.now()}`,
-                    fileId: activeFile.id,
-                    filePath: activeFile.path,
-                    originalContent: activeFile.content,
-                    proposedContent: targetBlock.code,
-                    explanation: targetBlock.explanation || 'Proposed code changes for ' + activeFile.name,
-                    status: 'pending',
-                    lines: diffLines
-                  };
+                const operations: FileOperationProposal[] = codeBlocks.map((block) =>
+                  inferFileOperation(block, currentFiles, activeFile)
+                );
 
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMsgId
-                        ? { ...m, diff: diffProposal }
-                        : m
-                    )
-                  );
-                }
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId
+                      ? { ...m, fileOperations: operations }
+                      : m
+                  )
+                );
               }
             }
           },
@@ -185,8 +337,59 @@ When modifying or proposing code changes:
     }
   };
 
+  const handleAcceptOperation = (op: FileOperationProposal, customPath?: string) => {
+    const targetPath = customPath || op.filePath;
+    if (onApplyFile) {
+      onApplyFile(targetPath, op.proposedContent);
+    } else {
+      onApplyDiff(targetPath, op.proposedContent);
+    }
+
+    setMessages((prev) =>
+      prev.map((m) => ({
+        ...m,
+        fileOperations: m.fileOperations?.map((o) =>
+          o.id === op.id ? { ...o, status: 'accepted' as const, filePath: targetPath } : o
+        )
+      }))
+    );
+  };
+
+  const handleRejectOperation = (op: FileOperationProposal) => {
+    setMessages((prev) =>
+      prev.map((m) => ({
+        ...m,
+        fileOperations: m.fileOperations?.map((o) =>
+          o.id === op.id ? { ...o, status: 'rejected' as const } : o
+        )
+      }))
+    );
+  };
+
+  const handleApplyAllOperations = (operations: FileOperationProposal[]) => {
+    for (const op of operations) {
+      if (op.status === 'pending') {
+        if (onApplyFile) {
+          onApplyFile(op.filePath, op.proposedContent);
+        } else {
+          onApplyDiff(op.filePath, op.proposedContent);
+        }
+      }
+    }
+    setMessages((prev) =>
+      prev.map((m) => ({
+        ...m,
+        fileOperations: m.fileOperations?.map((o) => ({ ...o, status: 'accepted' as const }))
+      }))
+    );
+  };
+
   const handleAcceptDiff = (diff: DiffProposal) => {
-    onApplyDiff(diff.filePath, diff.proposedContent);
+    if (onApplyFile) {
+      onApplyFile(diff.filePath, diff.proposedContent);
+    } else {
+      onApplyDiff(diff.filePath, diff.proposedContent);
+    }
     setMessages((prev) =>
       prev.map((m) =>
         m.diff?.id === diff.id
@@ -411,9 +614,39 @@ When modifying or proposing code changes:
                     </div>
                   )}
 
-                  {/* Diff Viewer if proposed */}
-                  {msg.diff && (
-                    <div className="w-full max-w-xl">
+                  {/* Multi-File Operations & Creation Cards */}
+                  {msg.fileOperations && msg.fileOperations.length > 0 && (
+                    <div className="w-full max-w-xl space-y-2 mt-2">
+                      {msg.fileOperations.filter(o => o.status === 'pending').length > 1 && (
+                        <div className="flex items-center justify-between p-2.5 bg-[#1C1B19] border border-[#DA7756]/40 rounded-xl">
+                          <span className="text-xs text-[#ECEBE7] font-medium flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-[#DA7756]" />
+                            <span>Claude proposed {msg.fileOperations.length} files</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleApplyAllOperations(msg.fileOperations || [])}
+                            className="px-3 py-1 rounded-lg bg-[#DA7756] hover:bg-[#C86545] text-white font-medium text-[11px] shadow transition-colors flex items-center gap-1"
+                          >
+                            <Check className="w-3 h-3" />
+                            <span>Apply All Files</span>
+                          </button>
+                        </div>
+                      )}
+                      {msg.fileOperations.map((op) => (
+                        <FileOperationCard
+                          key={op.id}
+                          operation={op}
+                          onAccept={handleAcceptOperation}
+                          onReject={handleRejectOperation}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Fallback Diff Viewer if singular diff proposal */}
+                  {!msg.fileOperations && msg.diff && (
+                    <div className="w-full max-w-xl mt-2">
                       <DiffViewer
                         diff={msg.diff}
                         onAccept={handleAcceptDiff}

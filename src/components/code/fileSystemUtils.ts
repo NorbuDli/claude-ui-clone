@@ -400,3 +400,124 @@ export async function saveFileDirectToDisk(file: CodeFile, newContent: string): 
   }
   return false;
 }
+
+/**
+ * Insert or update a file at a relative path (e.g. 'src/components/Navbar.tsx' or 'Navbar.tsx')
+ * Automatically creates intermediate folders and marks them open.
+ */
+export function insertOrUpdateFileInTree(
+  nodes: FileSystemNode[],
+  filePath: string,
+  content: string
+): { updatedNodes: FileSystemNode[]; fileId: string } {
+  const cleanPath = filePath.replace(/^[/\\]+/, '').replace(/\\/g, '/');
+  const parts = cleanPath.split('/').filter(Boolean);
+  if (parts.length === 0) return { updatedNodes: nodes, fileId: '' };
+
+  const fileName = parts[parts.length - 1];
+  let generatedFileId = `file-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+  function traverse(currentNodes: FileSystemNode[], segmentIndex: number, currentDirPath: string): FileSystemNode[] {
+    const isLeaf = segmentIndex === parts.length - 1;
+    const segment = parts[segmentIndex];
+    const nextDirPath = currentDirPath ? `${currentDirPath}/${segment}` : segment;
+
+    if (isLeaf) {
+      // Check if file exists
+      const existingIndex = currentNodes.findIndex(n => !n.isFolder && (n.name === segment || n.path === cleanPath));
+      if (existingIndex !== -1) {
+        const existing = currentNodes[existingIndex] as CodeFile;
+        generatedFileId = existing.id;
+        const updated = [...currentNodes];
+        updated[existingIndex] = {
+          ...existing,
+          path: cleanPath,
+          content,
+          language: detectLanguage(fileName)
+        };
+        return updated;
+      }
+      // New file
+      const newFile: CodeFile = {
+        id: generatedFileId,
+        name: fileName,
+        path: cleanPath,
+        content,
+        language: detectLanguage(fileName)
+      };
+      return [...currentNodes, newFile];
+    } else {
+      // Folder level
+      const existingFolderIndex = currentNodes.findIndex(n => n.isFolder && n.name === segment);
+      if (existingFolderIndex !== -1) {
+        const folder = currentNodes[existingFolderIndex] as CodeFolder;
+        const updatedChildren = traverse(folder.children || [], segmentIndex + 1, nextDirPath);
+        const updated = [...currentNodes];
+        updated[existingFolderIndex] = {
+          ...folder,
+          isOpen: true,
+          children: updatedChildren
+        };
+        return updated;
+      } else {
+        // Create intermediate folder
+        const newFolder: CodeFolder = {
+          id: `folder-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          name: segment,
+          path: nextDirPath,
+          isFolder: true,
+          isOpen: true,
+          children: traverse([], segmentIndex + 1, nextDirPath)
+        };
+        return [...currentNodes, newFolder];
+      }
+    }
+  }
+
+  const updatedNodes = traverse(nodes, 0, '');
+  return { updatedNodes, fileId: generatedFileId };
+}
+
+/**
+ * Insert a folder at a relative path (e.g. 'src/components' or 'components')
+ */
+export function insertFolderInTree(
+  nodes: FileSystemNode[],
+  folderPath: string
+): FileSystemNode[] {
+  const cleanPath = folderPath.replace(/^[/\\]+/, '').replace(/\\/g, '/');
+  const parts = cleanPath.split('/').filter(Boolean);
+  if (parts.length === 0) return nodes;
+
+  function traverse(currentNodes: FileSystemNode[], segmentIndex: number, currentDirPath: string): FileSystemNode[] {
+    if (segmentIndex >= parts.length) return currentNodes;
+    const segment = parts[segmentIndex];
+    const nextDirPath = currentDirPath ? `${currentDirPath}/${segment}` : segment;
+
+    const existingIndex = currentNodes.findIndex(n => n.isFolder && n.name === segment);
+    if (existingIndex !== -1) {
+      const folder = currentNodes[existingIndex] as CodeFolder;
+      const updatedChildren = traverse(folder.children || [], segmentIndex + 1, nextDirPath);
+      const updated = [...currentNodes];
+      updated[existingIndex] = {
+        ...folder,
+        isOpen: true,
+        children: updatedChildren
+      };
+      return updated;
+    } else {
+      const newFolder: CodeFolder = {
+        id: `folder-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name: segment,
+        path: nextDirPath,
+        isFolder: true,
+        isOpen: true,
+        children: traverse([], segmentIndex + 1, nextDirPath)
+      };
+      return [...currentNodes, newFolder];
+    }
+  }
+
+  return traverse(nodes, 0, '');
+}
+

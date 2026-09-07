@@ -28,7 +28,9 @@ import {
   buildTreeFromFileList,
   importZipProject,
   exportProjectAsZip,
-  saveFileDirectToDisk
+  saveFileDirectToDisk,
+  insertOrUpdateFileInTree,
+  insertFolderInTree
 } from './fileSystemUtils';
 import { DEFAULT_CODE_PROJECTS, findFileById, updateFileContentInTree } from './defaultProjects';
 import { CodeProject, CodeFile, ConsoleLog, ProblemItem, CodeEditorSettings } from './types';
@@ -377,24 +379,25 @@ export const CodeWorkspaceView: React.FC = () => {
     ]);
   };
 
-  // ─── Apply Diff from Claude AI ───
-  const handleApplyDiff = (filePath: string, newContent: string) => {
+  // ─── Apply File / Diff from Claude AI or User (Supports New Files and Nested Folders) ───
+  const handleApplyFile = (filePath: string, content: string) => {
     if (!currentProject) return;
+
+    const { updatedNodes, fileId } = insertOrUpdateFileInTree(currentProject.files, filePath, content);
+
     setProjects((prev) =>
       prev.map((proj) => {
         if (proj.id !== currentProject.id) return proj;
-        const findAndReplace = (nodes: any[]): any[] => {
-          return nodes.map((node) => {
-            if (!node.isFolder && node.path === filePath) {
-              return { ...node, content: newContent };
-            }
-            if (node.isFolder && node.children) {
-              return { ...node, children: findAndReplace(node.children) };
-            }
-            return node;
-          });
+        const openFileIds = proj.openFileIds.includes(fileId)
+          ? proj.openFileIds
+          : [...proj.openFileIds, fileId];
+        return {
+          ...proj,
+          files: updatedNodes,
+          activeFileId: fileId,
+          openFileIds,
+          updatedAt: Date.now()
         };
-        return { ...proj, files: findAndReplace(proj.files), updatedAt: Date.now() };
       })
     );
 
@@ -403,53 +406,31 @@ export const CodeWorkspaceView: React.FC = () => {
       {
         id: String(Date.now()),
         type: 'success',
-        message: `✓ Applied AI modification to ${filePath}`,
+        message: `✓ Saved ${filePath} in project "${currentProject.name}"`,
         timestamp: new Date().toLocaleTimeString()
       }
     ]);
   };
 
-  // ─── File CRUD ───
-  const handleCreateFile = (name: string) => {
-    if (!currentProject) return;
-    const ext = name.split('.').pop() || '';
-    const newFile: CodeFile = {
-      id: `file-${Date.now()}`,
-      name,
-      path: name,
-      language: ext.includes('ts') || ext.includes('js') ? 'typescript' : ext.includes('css') ? 'css' : ext.includes('html') ? 'html' : 'plaintext',
-      content: ''
-    };
-
-    setProjects((prev) =>
-      prev.map((proj) => {
-        if (proj.id !== currentProject.id) return proj;
-        const updatedFiles = [...proj.files, newFile];
-        return {
-          ...proj,
-          files: updatedFiles,
-          activeFileId: newFile.id,
-          openFileIds: [...proj.openFileIds, newFile.id]
-        };
-      })
-    );
+  const handleApplyDiff = (filePath: string, newContent: string) => {
+    handleApplyFile(filePath, newContent);
   };
 
-  const handleCreateFolder = (name: string) => {
+  // ─── File & Folder Creation (Supports Paths and Nested Folders) ───
+  const handleCreateFile = (nameOrPath: string, parentPath?: string) => {
     if (!currentProject) return;
-    const newFolder = {
-      id: `folder-${Date.now()}`,
-      name,
-      path: name,
-      isFolder: true as const,
-      isOpen: true,
-      children: []
-    };
+    const fullPath = parentPath ? `${parentPath}/${nameOrPath}` : nameOrPath;
+    handleApplyFile(fullPath, '');
+  };
 
+  const handleCreateFolder = (nameOrPath: string, parentPath?: string) => {
+    if (!currentProject) return;
+    const fullPath = parentPath ? `${parentPath}/${nameOrPath}` : nameOrPath;
+    const updatedFiles = insertFolderInTree(currentProject.files, fullPath);
     setProjects((prev) =>
       prev.map((proj) => {
         if (proj.id !== currentProject.id) return proj;
-        return { ...proj, files: [...proj.files, newFolder] };
+        return { ...proj, files: updatedFiles, updatedAt: Date.now() };
       })
     );
   };
@@ -870,6 +851,7 @@ export const CodeWorkspaceView: React.FC = () => {
             {/* Right Column: Sandboxed Live Preview */}
             <LivePreview
               project={currentProject}
+              activeFile={activeFile}
               onPreviewLog={(type, msg) => {
                 setConsoleLogs((prev) => [
                   ...prev,
@@ -900,6 +882,7 @@ export const CodeWorkspaceView: React.FC = () => {
             problems={problems}
             onClearLogs={() => setConsoleLogs([])}
             onApplyDiff={handleApplyDiff}
+            onApplyFile={handleApplyFile}
             onSelectFileByPath={(path) => {
               const findByPath = (nodes: any[]): string | null => {
                 for (const n of nodes) {

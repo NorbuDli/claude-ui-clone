@@ -68,11 +68,25 @@ export interface ProblemItem {
   severity: 'error' | 'warning';
 }
 
+export interface FileOperationProposal {
+  id: string;
+  type: 'create' | 'edit';
+  filePath: string;
+  fileName: string;
+  originalContent?: string;
+  proposedContent: string;
+  language: string;
+  explanation: string;
+  diffLines?: DiffLine[];
+  status: 'pending' | 'accepted' | 'rejected';
+}
+
 export interface AssistantMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   diff?: DiffProposal;
+  fileOperations?: FileOperationProposal[];
   isThinking?: boolean;
   thinkingContent?: string;
   timestamp: number;

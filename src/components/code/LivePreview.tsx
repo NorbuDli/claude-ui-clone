@@ -1,15 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   RotateCw,
   ExternalLink,
   AlertCircle,
   Code2,
-  FileQuestion
+  FileQuestion,
+  Layers,
+  ChevronDown
 } from 'lucide-react';
 import { CodeProject, CodeFile } from './types';
 
 interface LivePreviewProps {
   project: CodeProject | null;
+  activeFile?: CodeFile | null;
   onPreviewLog?: (type: 'info' | 'error' | 'warn' | 'success', msg: string) => void;
   onPreviewError?: (error: { message: string; line?: number; column?: number }) => void;
   onClearErrors?: () => void;
@@ -17,6 +20,7 @@ interface LivePreviewProps {
 
 export const LivePreview: React.FC<LivePreviewProps> = ({
   project,
+  activeFile,
   onPreviewLog,
   onPreviewError,
   onClearErrors
@@ -24,6 +28,8 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
   const [deviceMode, setDeviceMode] = useState<'web' | 'mobile'>('web');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [buildError, setBuildError] = useState<string | null>(null);
+  const [selectedComponentOverride, setSelectedComponentOverride] = useState<string | null>(null);
+  const [renderedComponentName, setRenderedComponentName] = useState<string>('App');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   if (!project) {
@@ -56,12 +62,89 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
 
   const files = getAllFiles(project.files);
 
-  const htmlFile = files.find((f) => f.name.toLowerCase().endsWith('.html'));
+  // Find previewable files
+  const htmlFiles = files.filter((f) => f.name.toLowerCase().endsWith('.html'));
+  const activeHtml = activeFile && activeFile.name.toLowerCase().endsWith('.html') ? activeFile : null;
+  const htmlFile = activeHtml || htmlFiles.find((f) => f.name.toLowerCase() === 'index.html') || htmlFiles[0];
+
   const cssFiles = files.filter((f) => f.name.toLowerCase().endsWith('.css'));
   const jsFiles = files.filter((f) => f.name.toLowerCase().endsWith('.js') && !f.name.endsWith('.config.js'));
-  const reactFiles = files.filter((f) => f.name.endsWith('.tsx') || f.name.endsWith('.jsx'));
+  const reactFiles = files.filter(
+    (f) =>
+      f.name.endsWith('.tsx') ||
+      f.name.endsWith('.jsx') ||
+      (f.name.endsWith('.ts') && !f.name.endsWith('.d.ts')) ||
+      (f.name.endsWith('.js') && !f.name.endsWith('.config.js') && !htmlFile)
+  );
 
   const hasPreviewableContent = Boolean(htmlFile || reactFiles.length > 0 || (jsFiles.length > 0 && cssFiles.length > 0));
+
+  // Extract all Lucide icon names imported across all project files
+  const allLucideIcons = useMemo(() => {
+    const iconNames = new Set<string>([
+      'Play', 'Pause', 'RotateCcw', 'Coffee', 'Zap', 'CheckCircle2', 'Plus', 'Trash2',
+      'Check', 'Sparkles', 'Heart', 'Star', 'ArrowRight', 'Search', 'Settings', 'User',
+      'Code', 'Folder', 'File', 'ChevronRight', 'ChevronDown', 'ChevronUp', 'ChevronLeft',
+      'Menu', 'X', 'ExternalLink', 'AlertCircle', 'Info', 'Eye', 'Copy', 'Download',
+      'Share2', 'Filter', 'Activity', 'BarChart', 'LineChart', 'PieChart', 'Calendar',
+      'Clock', 'Bell', 'Mail', 'Send', 'Sun', 'Moon', 'Globe', 'Terminal', 'Database',
+      'Layers', 'Cpu', 'Sliders', 'Shield', 'Lock', 'Unlock', 'Edit', 'Edit2', 'Edit3'
+    ]);
+
+    const importRegex = /import\s*\{([^}]+)\}\s*from\s*['"]lucide-react['"]/g;
+    for (const f of files) {
+      let m;
+      while ((m = importRegex.exec(f.content)) !== null) {
+        const rawImports = m[1].split(',');
+        for (const item of rawImports) {
+          const trimmed = item.trim().split(/\s+as\s+/)[0].trim();
+          if (trimmed && /^[A-Z][a-zA-Z0-9]*$/.test(trimmed)) {
+            iconNames.add(trimmed);
+          }
+        }
+      }
+    }
+    return Array.from(iconNames);
+  }, [files]);
+
+  // Extract all declared React component names
+  const availableComponents = useMemo(() => {
+    const names = new Set<string>();
+    for (const f of reactFiles) {
+      const matches = f.content.matchAll(/(?:export\s+)?(?:default\s+)?(?:function|const|class)\s+([A-Z][a-zA-Z0-9_]*)/g);
+      for (const m of matches) {
+        if (m[1] && m[1] !== 'React' && m[1] !== 'FC') {
+          names.add(m[1]);
+        }
+      }
+      const defaultExportMatch = f.content.match(/export\s+default\s+([A-Z][a-zA-Z0-9_]*);?/);
+      if (defaultExportMatch && defaultExportMatch[1]) {
+        names.add(defaultExportMatch[1]);
+      }
+      const base = f.name.replace(/\.[^.]+$/, '');
+      if (/^[A-Z][a-zA-Z0-9_]*$/.test(base)) {
+        names.add(base);
+      }
+    }
+    return Array.from(names);
+  }, [reactFiles]);
+
+  // Determine preferred entry component
+  const preferredEntryComponent = useMemo(() => {
+    if (selectedComponentOverride && availableComponents.includes(selectedComponentOverride)) {
+      return selectedComponentOverride;
+    }
+    if (availableComponents.includes('App')) return 'App';
+    if (availableComponents.includes('Dashboard')) return 'Dashboard';
+    if (availableComponents.includes('Main')) return 'Main';
+
+    if (activeFile) {
+      const activeBase = activeFile.name.replace(/\.[^.]+$/, '');
+      if (availableComponents.includes(activeBase)) return activeBase;
+    }
+
+    return availableComponents[0] || 'App';
+  }, [selectedComponentOverride, availableComponents, activeFile]);
 
   // Generate live bundled HTML content from project files
   const generatePreviewDoc = (): string => {
@@ -72,10 +155,9 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
     const combinedCss = cssFiles.map((f) => f.content).join('\n\n');
 
     // Case 1: Pure HTML project
-    if (htmlFile && reactFiles.length === 0) {
+    if (htmlFile && (reactFiles.length === 0 || activeHtml)) {
       let content = htmlFile.content;
 
-      // Inject project CSS if not already present
       if (combinedCss && !content.includes(combinedCss)) {
         if (content.includes('</head>')) {
           content = content.replace('</head>', `<style>${combinedCss}</style></head>`);
@@ -84,7 +166,6 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
         }
       }
 
-      // Inject project JS files
       const combinedJs = jsFiles.map((f) => f.content).join('\n\n');
       if (combinedJs && !content.includes(combinedJs)) {
         if (content.includes('</body>')) {
@@ -94,7 +175,6 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
         }
       }
 
-      // Inject sandbox logger
       const loggerScript = `
       <script>
         window.onerror = function(msg, url, line, col, error) {
@@ -119,31 +199,59 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
     }
 
     // Case 2: React / JSX / TSX project
-    const componentCodeBlocks = reactFiles
+    const sortedReactFiles = [...reactFiles].sort((a, b) => {
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+      if (aName.includes('app') || aName.includes('dashboard') || aName.includes('index')) return 1;
+      if (bName.includes('app') || bName.includes('dashboard') || bName.includes('index')) return -1;
+      return a.path.localeCompare(b.path);
+    });
+
+    const componentCodeBlocks = sortedReactFiles
       .map((f) => {
-        // Clean imports/exports for browser standalone execution
         const clean = f.content
+          .replace(/import\s+React\s*,\s*\{[^}]*\}\s+from\s+['"][^'"]+['"];?/g, '')
+          .replace(/import\s+React\s+from\s+['"][^'"]+['"];?/g, '')
           .replace(/import\s+.*?from\s+['"].*?['"];?/g, '')
-          .replace(/export\s+default\s+/g, '')
+          .replace(/export\s+default\s+function\s+([A-Za-z0-9_]+)/g, 'function $1')
+          .replace(/export\s+default\s+([A-Za-z0-9_]+);?/g, '')
           .replace(/export\s+(const|function|class|type|interface)\s+/g, '$1 ');
         return `// File: ${f.name}\n${clean}`;
       })
       .join('\n\n');
 
-    return `
-<!DOCTYPE html>
-<html lang="en">
+    return `<!DOCTYPE html>
+<html lang="en" class="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${project.name}</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            claude: {
+              bg: '#141413',
+              card: '#1C1B19',
+              coral: '#DA7756',
+              border: '#2B2A27'
+            }
+          }
+        }
+      }
+    }
+  </script>
   <!-- React 18 & ReactDOM 18 -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <!-- Babel Standalone for live JSX/TSX transpilation -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Lucide Icons UMD -->
+  <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     body {
       margin: 0;
@@ -201,17 +309,83 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
 
   <script type="text/babel">
     try {
-      const { useState, useEffect, useRef, useMemo, useCallback } = React;
+      const { useState, useEffect, useRef, useMemo, useCallback, useContext, createContext, useReducer } = React;
 
+      // Dynamic Lucide Icon factory
+      function createLucideIcon(iconName) {
+        return function LucideIconComponent(props) {
+          const spanRef = React.useRef(null);
+          React.useEffect(() => {
+            if (window.lucide && spanRef.current) {
+              window.lucide.createIcons({
+                root: spanRef.current
+              });
+            }
+          });
+          const kebab = (iconName || 'circle')
+            .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+            .toLowerCase();
+          const size = props.size || 16;
+          return (
+            <span
+              ref={spanRef}
+              className={props.className || 'inline-flex items-center justify-center'}
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', verticalAlign: 'middle', ...props.style }}
+            >
+              <i data-lucide={kebab} style={{ width: size, height: size }}></i>
+            </span>
+          );
+        };
+      }
+
+      const LucideProxy = new Proxy({}, {
+        get: (target, prop) => {
+          if (typeof prop === 'string') {
+            return createLucideIcon(prop);
+          }
+          return undefined;
+        }
+      });
+
+      const { ${allLucideIcons.join(', ')} } = LucideProxy;
+
+      // Bundled Project Components
       ${componentCodeBlocks}
 
-      // Root App Render
-      if (typeof App !== 'undefined') {
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-        window.parent.postMessage({ type: 'code-preview-ready' }, '*');
+      // Entry Component Selection & Mounting
+      const candidateNames = ${JSON.stringify(availableComponents)};
+      const preferredName = ${JSON.stringify(preferredEntryComponent)};
+      let RootComponent = null;
+
+      if (preferredName && typeof window[preferredName] === 'function') {
+        RootComponent = window[preferredName];
+      } else if (typeof App !== 'undefined') {
+        RootComponent = App;
       } else {
-        document.getElementById('root').innerHTML = '<div class="p-8 text-center text-zinc-400 text-xs">No App component found. Export an App component in App.tsx or App.jsx.</div>';
+        for (const name of candidateNames) {
+          try {
+            const val = eval(name);
+            if (typeof val === 'function') {
+              RootComponent = val;
+              break;
+            }
+          } catch {}
+        }
+      }
+
+      if (RootComponent) {
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<RootComponent />);
+        window.parent.postMessage({
+          type: 'code-preview-ready',
+          renderedComponent: RootComponent.name || preferredName || 'Component'
+        }, '*');
+
+        setTimeout(() => {
+          if (window.lucide) window.lucide.createIcons();
+        }, 100);
+      } else {
+        document.getElementById('root').innerHTML = '<div class="p-8 text-center text-zinc-400 text-xs">No React component found. Define an App or component in your project files.</div>';
       }
     } catch (err) {
       window.parent.postMessage({
@@ -242,6 +416,9 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
         });
       } else if (e.data.type === 'code-preview-ready') {
         setBuildError(null);
+        if (e.data.renderedComponent) {
+          setRenderedComponentName(e.data.renderedComponent);
+        }
         onClearErrors?.();
       }
     };
@@ -276,6 +453,24 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#242320]">
         <div className="flex items-center gap-3">
           <span className="text-xs font-medium text-[#ECEBE7]">Preview</span>
+
+          {/* Component Switcher Dropdown (if multiple components exist) */}
+          {availableComponents.length > 1 && (
+            <div className="relative flex items-center">
+              <select
+                value={preferredEntryComponent}
+                onChange={(e) => setSelectedComponentOverride(e.target.value)}
+                className="bg-[#1C1B19] border border-[#2B2A27] text-[#ECEBE7] text-[11px] rounded-lg px-2 py-0.5 outline-none cursor-pointer hover:border-[#DA7756]/60 transition-colors"
+                title="Select root component to render"
+              >
+                {availableComponents.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Web / Mobile Switcher */}
           {hasPreviewableContent && (
