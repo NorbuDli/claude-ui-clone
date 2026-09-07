@@ -1,24 +1,66 @@
 import { FreeModelInfo } from './types';
 
+// Models to strictly exclude (e.g. distributor unavailable, decommissioned, or non-functional endpoints)
+const BLACKLISTED_MODEL_IDS = new Set([
+  'poolside/laguna-s-2.1:free', // Distributor unavailable (404)
+  'deepseek/deepseek-v4-flash:free' // Decommissioned on OpenRouter
+]);
+
 // Fallback list of known verified free models on OpenRouter (used if catalog API is unreachable)
 const STATIC_FREE_MODELS_FALLBACK: FreeModelInfo[] = [
   {
-    id: 'minimax/minimax-m3:free',
-    name: 'MiniMax M3 (free)',
-    description: 'Multimodal foundation model with 1M context, vision and reasoning.',
-    contextLength: 1048576,
-    inputModalities: ['text', 'image', 'video'],
+    id: 'inclusionai/ling-3.0-flash-fin:free',
+    name: 'Ling 3.0 Flash Fin (free)',
+    description: 'Finance and coding mixture-of-experts model from InclusionAI.',
+    contextLength: 262144,
+    inputModalities: ['text'],
     outputModalities: ['text'],
     supportedParameters: ['tools', 'reasoning'],
+    isVisionCapable: false,
+    isReasoningCapable: true,
+    isToolCapable: true
+  },
+  {
+    id: 'google/gemma-4-26b-a4b-it:free',
+    name: 'Google Gemma 4 26B A4B (free)',
+    description: 'Google DeepMind instruction-tuned mixture-of-experts multimodal model.',
+    contextLength: 262144,
+    inputModalities: ['text', 'image', 'video'],
+    outputModalities: ['text'],
+    supportedParameters: ['tools'],
     isVisionCapable: true,
     isReasoningCapable: true,
     isToolCapable: true
   },
   {
-    id: 'poolside/laguna-s-2.1:free',
-    name: 'Laguna S 2.1 (free)',
-    description: 'Coding agent model from Poolside designed for software engineering.',
-    contextLength: 262144,
+    id: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+    name: 'NVIDIA Nemotron 3 Ultra 550B (free)',
+    description: 'Open frontier-reasoning and orchestration model with 1M context.',
+    contextLength: 1000000,
+    inputModalities: ['text'],
+    outputModalities: ['text'],
+    supportedParameters: ['tools'],
+    isVisionCapable: false,
+    isReasoningCapable: true,
+    isToolCapable: true
+  },
+  {
+    id: 'thinkingmachines/inkling-small:free',
+    name: 'Thinking Machines Inkling Small (free)',
+    description: 'Multimodal mixture-of-experts model with vision capabilities.',
+    contextLength: 1048576,
+    inputModalities: ['text', 'image', 'audio'],
+    outputModalities: ['text'],
+    supportedParameters: [],
+    isVisionCapable: true,
+    isReasoningCapable: true,
+    isToolCapable: false
+  },
+  {
+    id: 'nvidia/nemotron-3.5-lightning:free',
+    name: 'NVIDIA Nemotron 3.5 Lightning (free)',
+    description: '1M context open mixture-of-experts model for knowledge and reasoning.',
+    contextLength: 1000000,
     inputModalities: ['text'],
     outputModalities: ['text'],
     supportedParameters: ['tools'],
@@ -39,26 +81,38 @@ const STATIC_FREE_MODELS_FALLBACK: FreeModelInfo[] = [
     isToolCapable: true
   },
   {
-    id: 'google/gemma-4-31b-it:free',
-    name: 'Google Gemma 4 31B (free)',
-    description: 'Google DeepMind multimodal instruction model with vision support.',
+    id: 'poolside/laguna-xs-2.1:free',
+    name: 'Laguna XS 2.1 (free)',
+    description: 'Coding agent model in the 33B-A3 category from Poolside.',
     contextLength: 262144,
-    inputModalities: ['text', 'image', 'video'],
-    outputModalities: ['text'],
-    supportedParameters: ['tools'],
-    isVisionCapable: true,
-    isReasoningCapable: true,
-    isToolCapable: true
-  },
-  {
-    id: 'nvidia/nemotron-3.5-lightning:free',
-    name: 'NVIDIA Nemotron 3.5 Lightning (free)',
-    description: '1M context open mixture-of-experts model for knowledge and reasoning.',
-    contextLength: 1000000,
     inputModalities: ['text'],
     outputModalities: ['text'],
     supportedParameters: ['tools'],
     isVisionCapable: false,
+    isReasoningCapable: true,
+    isToolCapable: true
+  },
+  {
+    id: 'dots-studio/dots-3-note-preview:free',
+    name: 'Dots3-Note Preview (free)',
+    description: 'Multimodal mixture-of-experts model with vision support and 512k context.',
+    contextLength: 512000,
+    inputModalities: ['text', 'image'],
+    outputModalities: ['text'],
+    supportedParameters: [],
+    isVisionCapable: true,
+    isReasoningCapable: true,
+    isToolCapable: false
+  },
+  {
+    id: 'minimax/minimax-m3:free',
+    name: 'MiniMax M3 (free)',
+    description: 'Multimodal foundation model with 1M context, vision and reasoning.',
+    contextLength: 1048576,
+    inputModalities: ['text', 'image', 'video'],
+    outputModalities: ['text'],
+    supportedParameters: ['tools', 'reasoning'],
+    isVisionCapable: true,
     isReasoningCapable: true,
     isToolCapable: true
   },
@@ -133,6 +187,12 @@ class ModelCatalogService {
 
       for (const m of rawModels) {
         const id: string = m.id || '';
+
+        // Exclude blacklisted broken models
+        if (BLACKLISTED_MODEL_IDS.has(id)) {
+          continue;
+        }
+
         const promptPrice = m.pricing?.prompt;
         const completionPrice = m.pricing?.completion;
 

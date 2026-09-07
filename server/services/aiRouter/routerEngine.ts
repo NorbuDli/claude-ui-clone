@@ -125,25 +125,16 @@ Mode            : ${isOverride ? 'MANUAL_OVERRIDE' : 'AUTO_ROUTING'}
 
           lastError = parsedMsg;
 
-          // If rate limited or unavailable, put in cooldown and try next fallback model
-          if (response.status === 429 || response.status === 503 || response.status === 502) {
-            cooldownManager.recordFailure(candidate, `HTTP_${response.status}`, 60);
-            if (i < candidateChain.length - 1) {
-              console.warn(`[AI Router] Rate limit / unavailable for ${candidate}. Falling back to ${candidateChain[i + 1]}...`);
-              continue;
-            }
+          // Record failure in cooldown so it is skipped in future requests
+          cooldownManager.recordFailure(candidate, `HTTP_${response.status}`, 120);
+
+          // If there are more candidates in the fallback chain, ALWAYS TRY NEXT MODEL!
+          if (i < candidateChain.length - 1) {
+            console.warn(`[AI Router] Model ${candidate} returned ${response.status}. Automatically falling back to ${candidateChain[i + 1]}...`);
+            continue;
           }
 
-          // If 404 (model decommissioned on OpenRouter), try next fallback
-          if (response.status === 404) {
-            cooldownManager.recordFailure(candidate, 'HTTP_404_NOT_FOUND', 3600);
-            if (i < candidateChain.length - 1) {
-              console.warn(`[AI Router] Model ${candidate} not found (404). Falling back to ${candidateChain[i + 1]}...`);
-              continue;
-            }
-          }
-
-          // If authentication or credit issues, abort immediately with clear guidance
+          // Only if all fallback candidates failed, report error
           if (response.status === 401) {
             await writeChunk('error', {
               error: 'Invalid OpenRouter API key. Please verify OPENROUTER_API_KEY in your environment variables.'
@@ -156,11 +147,6 @@ Mode            : ${isOverride ? 'MANUAL_OVERRIDE' : 'AUTO_ROUTING'}
               error: 'OpenRouter account balance is $0. Please ensure you are routing to a free model (:free) or add credits at openrouter.ai/credits.'
             });
             return;
-          }
-
-          // Other errors, try next model if available
-          if (i < candidateChain.length - 1) {
-            continue;
           }
 
           await writeChunk('error', {

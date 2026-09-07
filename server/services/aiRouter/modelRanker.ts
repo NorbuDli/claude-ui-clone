@@ -9,42 +9,40 @@ export interface RankedResult {
 
 export class ModelRanker {
   /**
-   * Ranks free models for a given task and returns the primary model + fallbacks.
+   * Ranks free models for a given task, prioritizing user-requested specialized models
+   * and providing resilient fallback candidates.
    */
   public static rank(task: TaskType, models: FreeModelInfo[]): RankedResult {
     if (!models || models.length === 0) {
       throw new Error('No free models available in catalog');
     }
 
-    // 1. VISION: Strictly require vision input capability
+    const findModel = (pattern: string): FreeModelInfo | undefined => {
+      const lower = pattern.toLowerCase();
+      return models.find((m) => m.id.toLowerCase().includes(lower));
+    };
+
+    // 1. VISION
     if (task === 'VISION') {
-      const visionModels = models.filter((m) => m.isVisionCapable);
+      // User preferred: thinkingmachines/inkling-small:free
+      // Resilient fallbacks: dots-studio/dots-3-note-preview:free, minimax/minimax-m3:free
+      const preferred = findModel('inkling-small');
+      const fallbacks = [
+        'dots-studio/dots-3-note-preview:free',
+        'minimax/minimax-m3:free',
+        'openrouter/free'
+      ];
 
-      if (visionModels.length === 0) {
-        return {
-          primaryModel: '',
-          fallbackModels: [],
-          reason: 'No free models currently support image/vision input.'
-        };
-      }
+      const primaryId = preferred && cooldownManager.isAvailable(preferred.id)
+        ? preferred.id
+        : 'dots-studio/dots-3-note-preview:free';
 
-      // Prioritize available (not in cooldown)
-      const sorted = visionModels.sort((a, b) => {
-        const aAvail = cooldownManager.isAvailable(a.id) ? 1 : 0;
-        const bAvail = cooldownManager.isAvailable(b.id) ? 1 : 0;
-        if (aAvail !== bAvail) return bAvail - aAvail;
-
-        // Prefer larger context
-        return b.contextLength - a.contextLength;
-      });
-
-      const selected = sorted[0];
-      const fallbacks = sorted.slice(1, 4).map((m) => m.id);
+      const activeFallbacks = fallbacks.filter((id) => id !== primaryId);
 
       return {
-        primaryModel: selected.id,
-        fallbackModels: fallbacks,
-        reason: `Selected ${selected.name} (${Math.round(selected.contextLength / 1024)}k context) for vision analysis.`
+        primaryModel: primaryId,
+        fallbackModels: activeFallbacks,
+        reason: 'Vision analysis: Thinking Machines Inkling Small (with Dots-3-Note and MiniMax-M3 fallbacks)'
       };
     }
 
@@ -58,12 +56,10 @@ export class ModelRanker {
           reason: 'OpenRouter does not currently provide a free text-to-image generation model.'
         };
       }
-
-      const selected = imageGenModels[0];
       return {
-        primaryModel: selected.id,
+        primaryModel: imageGenModels[0].id,
         fallbackModels: imageGenModels.slice(1).map((m) => m.id),
-        reason: `Selected ${selected.name} for image generation.`
+        reason: `Selected ${imageGenModels[0].name} for image generation.`
       };
     }
 
@@ -84,78 +80,74 @@ export class ModelRanker {
       };
     }
 
-    // 4. SCORE GENERAL, CODING, REASONING, WRITING
-    const scoredModels = models.map((model) => {
-      let score = 0;
-      const idLower = model.id.toLowerCase();
-      const descLower = model.description.toLowerCase();
+    // 4. CODING
+    if (task === 'CODING') {
+      // User preferred: inclusionai/ling-3.0-flash-fin:free
+      // Resilient fallbacks: cohere/north-mini-code:free, poolside/laguna-xs-2.1:free, minimax/minimax-m3:free
+      const preferred = findModel('ling-3.0-flash-fin');
+      const fallbacks = [
+        'cohere/north-mini-code:free',
+        'poolside/laguna-xs-2.1:free',
+        'minimax/minimax-m3:free'
+      ];
 
-      // Base context score (up to 20 pts)
-      score += Math.min(20, Math.round(model.contextLength / 50000));
+      const primaryId = preferred && cooldownManager.isAvailable(preferred.id)
+        ? preferred.id
+        : 'cohere/north-mini-code:free';
 
-      // Cooldown penalty
-      if (!cooldownManager.isAvailable(model.id)) {
-        score -= 50;
-      }
+      const activeFallbacks = fallbacks.filter((id) => id !== primaryId);
 
-      if (task === 'CODING') {
-        // High priority to models specifically built for coding
-        if (idLower.includes('code') || descLower.includes('coding') || descLower.includes('agent model from poolside')) {
-          score += 50;
-        }
-        if (idLower.includes('laguna') || idLower.includes('north-mini')) {
-          score += 30;
-        }
-        if (model.isToolCapable) {
-          score += 15;
-        }
-        if (model.isReasoningCapable) {
-          score += 15;
-        }
-      } else if (task === 'REASONING') {
-        // High priority to models with frontier reasoning
-        if (model.isReasoningCapable) {
-          score += 40;
-        }
-        if (idLower.includes('reasoning') || descLower.includes('reasoning') || idLower.includes('ultra')) {
-          score += 35;
-        }
-        if (idLower.includes('550b') || idLower.includes('120b') || idLower.includes('glm')) {
-          score += 20;
-        }
-      } else if (task === 'WRITING' || task === 'SUMMARIZATION') {
-        // High priority to balanced large-context fluent models
-        if (idLower.includes('minimax') || idLower.includes('lightning') || idLower.includes('gemma')) {
-          score += 30;
-        }
-        if (model.contextLength >= 250000) {
-          score += 20;
-        }
-      } else {
-        // GENERAL_CHAT
-        if (idLower.includes('minimax-m3') || idLower.includes('lightning') || idLower.includes('gemma')) {
-          score += 30;
-        }
-        if (model.contextLength >= 250000) {
-          score += 20;
-        }
-        if (model.isReasoningCapable) {
-          score += 10;
-        }
-      }
+      return {
+        primaryModel: primaryId,
+        fallbackModels: activeFallbacks,
+        reason: 'Coding & engineering: Ling 3.0 Flash Fin (with Cohere North Mini Code and Laguna-XS fallbacks)'
+      };
+    }
 
-      return { model, score };
-    });
+    // 5. DEEP REASONING
+    if (task === 'REASONING') {
+      // User preferred: nvidia/nemotron-3-ultra-550b-a55b:free
+      // Resilient fallbacks: nvidia/nemotron-3-super-120b-a12b:free, liquid/lfm-2.5-2.6b:free
+      const preferred = findModel('nemotron-3-ultra-550b');
+      const fallbacks = [
+        'nvidia/nemotron-3-super-120b-a12b:free',
+        'liquid/lfm-2.5-2.6b:free',
+        'minimax/minimax-m3:free'
+      ];
 
-    scoredModels.sort((a, b) => b.score - a.score);
+      const primaryId = preferred && cooldownManager.isAvailable(preferred.id)
+        ? preferred.id
+        : 'nvidia/nemotron-3-super-120b-a12b:free';
 
-    const primary = scoredModels[0].model;
-    const fallbacks = scoredModels.slice(1, 4).map((s) => s.model.id);
+      const activeFallbacks = fallbacks.filter((id) => id !== primaryId);
+
+      return {
+        primaryModel: primaryId,
+        fallbackModels: activeFallbacks,
+        reason: 'Deep reasoning & logic: NVIDIA Nemotron 3 Ultra 550B (with 120B Super and Liquid fallbacks)'
+      };
+    }
+
+    // 6. GENERAL CHAT, WRITING, SUMMARIZATION
+    // User preferred: google/gemma-4-26b-a4b-it:free
+    // Resilient fallbacks: nvidia/nemotron-3.5-lightning:free, minimax/minimax-m3:free, openrouter/free
+    const preferred = findModel('gemma-4-26b-a4b-it');
+    const fallbacks = [
+      'nvidia/nemotron-3.5-lightning:free',
+      'minimax/minimax-m3:free',
+      'openrouter/free'
+    ];
+
+    const primaryId = preferred && cooldownManager.isAvailable(preferred.id)
+      ? preferred.id
+      : 'nvidia/nemotron-3.5-lightning:free';
+
+    const activeFallbacks = fallbacks.filter((id) => id !== primaryId);
 
     return {
-      primaryModel: primary.id,
-      fallbackModels: fallbacks,
-      reason: `Best free candidate for ${task} (Score: ${scoredModels[0].score}, Context: ${Math.round(primary.contextLength / 1024)}k)`
+      primaryModel: primaryId,
+      fallbackModels: activeFallbacks,
+      reason: 'General chat & conversation: Google Gemma 4 26B (with Nemotron 3.5 Lightning and MiniMax-M3 fallbacks)'
     };
   }
 }
