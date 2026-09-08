@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import hljs from 'highlight.js';
 import {
   X,
   Plus,
@@ -11,6 +12,47 @@ import {
   Code
 } from 'lucide-react';
 import { CodeFile, CodeEditorSettings } from './types';
+
+function getHljsLanguage(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  switch (ext) {
+    case 'tsx':
+      return 'tsx';
+    case 'jsx':
+      return 'javascript';
+    case 'ts':
+      return 'typescript';
+    case 'js':
+    case 'mjs':
+    case 'cjs':
+      return 'javascript';
+    case 'html':
+    case 'htm':
+      return 'html';
+    case 'css':
+      return 'css';
+    case 'json':
+      return 'json';
+    case 'md':
+    case 'markdown':
+      return 'markdown';
+    case 'py':
+      return 'python';
+    case 'sql':
+      return 'sql';
+    case 'yaml':
+    case 'yml':
+      return 'yaml';
+    case 'sh':
+    case 'bash':
+      return 'bash';
+    case 'xml':
+    case 'svg':
+      return 'xml';
+    default:
+      return 'plaintext';
+  }
+}
 
 interface CodeEditorProps {
   activeFile: CodeFile | null;
@@ -39,6 +81,39 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [isSavedFlash, setIsSavedFlash] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const preRef = useRef<HTMLPreElement>(null);
+  const gutterRef = useRef<HTMLDivElement>(null);
+
+  // Compute syntax highlighted HTML using highlight.js
+  const highlightedCode = useMemo(() => {
+    if (!activeFile) return '';
+    const lang = getHljsLanguage(activeFile.name);
+    try {
+      if (lang !== 'plaintext' && hljs.getLanguage(lang)) {
+        return hljs.highlight(activeFile.content, { language: lang, ignoreIllegals: true }).value;
+      }
+      return hljs.highlightAuto(activeFile.content).value;
+    } catch {
+      return activeFile.content
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+  }, [activeFile?.content, activeFile?.name]);
+
+  // Synchronize scrolling of code highlight layer, textarea, and gutter
+  const handleScroll = () => {
+    if (textareaRef.current) {
+      const { scrollTop, scrollLeft } = textareaRef.current;
+      if (preRef.current) {
+        preRef.current.scrollTop = scrollTop;
+        preRef.current.scrollLeft = scrollLeft;
+      }
+      if (gutterRef.current) {
+        gutterRef.current.scrollTop = scrollTop;
+      }
+    }
+  };
 
   // Update cursor line & column
   const handleCursorUpdate = () => {
@@ -196,14 +271,18 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
       {/* ─── Editor Body (Line Numbers + Code Area) ─── */}
       {activeFile ? (
-        <div className="flex-1 flex min-h-0 bg-[#1E1E1C] relative overflow-hidden font-mono">
+        <div className="flex-1 flex min-h-0 bg-[#1A1A18] relative overflow-hidden font-mono">
           {/* Line Numbers Gutter */}
           {settings.lineNumbers && (
-            <div className="w-12 py-3 bg-[#1A1A18] text-[#5E5C56] text-right pr-3 select-none text-[13px] font-mono leading-5 shrink-0 border-r border-[#262624]">
+            <div
+              ref={gutterRef}
+              className="w-12 py-3 bg-[#151513] text-[#55534E] text-right pr-3 select-none text-[13px] font-mono leading-5 shrink-0 border-r border-[#262522] overflow-hidden"
+              style={{ fontSize: `${settings.fontSize}px` }}
+            >
               {Array.from({ length: lineCount }).map((_, i) => (
                 <div
                   key={i}
-                  className={`h-5 ${cursorPos.line === i + 1 ? 'text-[#ECEBE7] font-semibold' : ''}`}
+                  className={`h-5 ${cursorPos.line === i + 1 ? 'text-[#DA7756] font-semibold' : ''}`}
                 >
                   {i + 1}
                 </div>
@@ -211,8 +290,25 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             </div>
           )}
 
-          {/* Editable Text Area with Overlay */}
-          <div className="flex-1 relative overflow-auto p-3">
+          {/* Code Container with Syntax Highlight Overlay and Editable Textarea */}
+          <div className="flex-1 relative overflow-hidden h-full">
+            {/* Syntax Highlighted View Layer */}
+            <pre
+              ref={preRef}
+              className={`code-editor-syntax absolute inset-0 m-0 p-3 pointer-events-none font-mono leading-5 overflow-hidden select-none ${
+                settings.wordWrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'
+              }`}
+              style={{
+                tabSize: settings.tabSize || 2,
+                fontSize: `${settings.fontSize}px`,
+                fontFamily: "'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace",
+                lineHeight: '20px'
+              }}
+              aria-hidden="true"
+              dangerouslySetInnerHTML={{ __html: highlightedCode + '\n' }}
+            />
+
+            {/* Editable Text Area (Directly on top, transparent text, colorful highlight shows through) */}
             <textarea
               ref={textareaRef}
               value={activeFile.content}
@@ -220,14 +316,16 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               onKeyUp={handleCursorUpdate}
               onClick={handleCursorUpdate}
               onKeyDown={handleKeyDown}
+              onScroll={handleScroll}
               spellCheck={false}
-              className={`w-full h-full bg-transparent text-[#ECEBE7] font-mono text-[${settings.fontSize}px] leading-5 outline-none resize-none selection:bg-[#DA7756]/40 ${
-                settings.wordWrap ? 'whitespace-pre-wrap' : 'whitespace-pre'
+              className={`absolute inset-0 w-full h-full m-0 p-3 bg-transparent text-transparent caret-[#DA7756] font-mono leading-5 outline-none resize-none overflow-auto selection:bg-[#DA7756]/30 selection:text-transparent ${
+                settings.wordWrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'
               }`}
               style={{
                 tabSize: settings.tabSize || 2,
-                caretColor: '#DA7756',
-                fontSize: `${settings.fontSize}px`
+                fontSize: `${settings.fontSize}px`,
+                fontFamily: "'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace",
+                lineHeight: '20px'
               }}
             />
           </div>

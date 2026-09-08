@@ -107,7 +107,8 @@ export function extractCodeBlocksFromAIResponse(response: string): ExtractedCode
 
   // 2. Standard Markdown Code Fences:
   // ```lang:filepath, ```lang file="filepath", ```lang filename="filepath", ```lang filepath.ext
-  const fenceRegex = /```([a-zA-Z0-9_-]+)?(?::([^\s\n]+)|\s+(?:file|filename|title)=["']?([^"'\n]+)["']?|\s+([a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+))?\n([\s\S]*?)```/g;
+  // Supports CRLF, trailing spaces, and various path formats
+  const fenceRegex = /```([a-zA-Z0-9_-]+)?(?::([^\s\r\n]+)|\s+(?:file|filename|title)=["']?([^"' \r\n]+)["']?|\s+([a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+))?[ \t]*\r?\n([\s\S]*?)```/g;
   let match;
 
   while ((match = fenceRegex.exec(response)) !== null) {
@@ -146,7 +147,7 @@ export function extractCodeBlocksFromAIResponse(response: string): ExtractedCode
   }
 
   // 3. Unclosed trailing code fence at the end of response (when token limit hit or incomplete fence)
-  const unclosedRegex = /(?:^|\n)```([a-zA-Z0-9_-]+)?(?::([^\s\n]+)|\s+(?:file|filename|title)=["']?([^"'\n]+)["']?|\s+([a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+))?\n([\s\S]+)$/;
+  const unclosedRegex = /(?:^|\r?\n)```([a-zA-Z0-9_-]+)?(?::([^\s\r\n]+)|\s+(?:file|filename|title)=["']?([^"' \r\n]+)["']?|\s+([a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+))?[ \t]*\r?\n([\s\S]+)$/;
   const unclosedMatch = response.match(unclosedRegex);
   if (unclosedMatch) {
     const trailingCode = unclosedMatch[5].trim();
@@ -165,7 +166,7 @@ export function extractCodeBlocksFromAIResponse(response: string): ExtractedCode
   // 4. Raw code fallback if no fenced code blocks were found
   if (blocks.length === 0) {
     const trimmed = response.trim();
-    const htmlMatch = trimmed.match(/(<!DOCTYPE html[\s\S]*?(?:<\/html>|$)|<html[\s\S]*?(?:<\/html>|$))/i);
+    const htmlMatch = trimmed.match(/(<!DOCTYPE html[\s\S]*?(?:<\/html>|$)|<html[\s\S]*?(?:<\/html>|$)|<div[\s\S]*?<script[\s\S]*?<\/script>|<canvas[\s\S]*?<script[\s\S]*?<\/script>)/i);
     if (htmlMatch && htmlMatch[1].length > 30) {
       blocks.push({
         explanation: 'Web Application / Game',
@@ -173,7 +174,7 @@ export function extractCodeBlocksFromAIResponse(response: string): ExtractedCode
         language: 'html',
         filename: 'index.html'
       });
-    } else if (trimmed.includes('function startGame') || trimmed.includes('canvas.getContext') || trimmed.includes('document.getElementById')) {
+    } else if (trimmed.includes('function startGame') || trimmed.includes('canvas.getContext') || trimmed.includes('document.getElementById') || trimmed.includes('requestAnimationFrame')) {
       blocks.push({
         explanation: 'Game Script',
         code: trimmed,
@@ -196,28 +197,76 @@ export function extractCodeBlocksFromAIResponse(response: string): ExtractedCode
     const b = blocks[i];
     if (!b.filename) {
       const code = b.code;
+      const lowerCode = code.toLowerCase();
       const lang = b.language.toLowerCase();
 
-      if (lang === 'html' || code.includes('<!DOCTYPE html>') || code.includes('<html') || code.includes('<canvas')) {
+      const isHtml =
+        lang === 'html' ||
+        lang === 'htm' ||
+        lowerCode.includes('<!doctype html') ||
+        lowerCode.includes('<!doctype') ||
+        lowerCode.includes('<html') ||
+        lowerCode.includes('<body') ||
+        lowerCode.includes('<canvas') ||
+        (lowerCode.includes('<style') && lowerCode.includes('<script')) ||
+        (lowerCode.includes('<div') && (lowerCode.includes('<script') || lowerCode.includes('canvas')));
+
+      const isCss =
+        lang === 'css' ||
+        lowerCode.includes('@keyframes') ||
+        (lowerCode.includes('{') && lowerCode.includes(':') && !lowerCode.includes('function') && !lowerCode.includes('const ') && !lowerCode.includes('let ') && !isHtml);
+
+      const isReact =
+        lang === 'typescript' ||
+        lang === 'tsx' ||
+        lang === 'jsx' ||
+        code.includes('import React') ||
+        code.includes('React.FC') ||
+        code.includes('export default function') ||
+        (code.includes('export default') && code.includes('return ('));
+
+      const isJs =
+        lang === 'javascript' ||
+        lang === 'js' ||
+        lowerCode.includes('getcontext(') ||
+        lowerCode.includes('requestanimationframe(') ||
+        lowerCode.includes('addeventlistener(') ||
+        (lowerCode.includes('function ') && lowerCode.includes('document.')) ||
+        (lowerCode.includes('const ') && lowerCode.includes('document.'));
+
+      if (isHtml) {
         b.filename = usedNames.has('index.html') ? `page-${i + 1}.html` : 'index.html';
-      } else if (lang === 'css' || code.includes('@keyframes') || (code.includes('{') && code.includes(':') && !code.includes('function') && !code.includes('const ') && !code.includes('let '))) {
+        b.language = 'html';
+      } else if (isCss) {
         b.filename = usedNames.has('style.css') ? `style-${i + 1}.css` : 'style.css';
-      } else if (lang === 'javascript' || lang === 'js') {
-        if (code.includes('snake') || code.includes('canvas') || code.includes('game') || code.includes('score') || code.includes('startGame')) {
+        b.language = 'css';
+      } else if (isReact) {
+        const compMatch = code.match(/export\s+(?:default\s+)?(?:const|function|class)\s+([A-Z][a-zA-Z0-9_]*)/);
+        const compName = compMatch ? compMatch[1] : (usedNames.has('src/App.tsx') ? `Component${i + 1}` : 'App');
+        b.filename = `src/${compName}.tsx`;
+        b.language = 'typescriptreact';
+      } else if (isJs) {
+        if (lowerCode.includes('snake') || lowerCode.includes('canvas') || lowerCode.includes('game') || lowerCode.includes('score') || lowerCode.includes('startgame')) {
           b.filename = usedNames.has('game.js') ? `game-${i + 1}.js` : 'game.js';
         } else {
           b.filename = usedNames.has('script.js') ? `script-${i + 1}.js` : 'script.js';
         }
-      } else if (lang === 'typescript' || lang === 'tsx' || lang === 'jsx' || code.includes('import React') || code.includes('React.FC')) {
-        const compMatch = code.match(/export\s+(?:default\s+)?(?:const|function|class)\s+([A-Z][a-zA-Z0-9_]*)/);
-        const compName = compMatch ? compMatch[1] : (usedNames.has('src/App.tsx') ? `Component${i + 1}` : 'App');
-        b.filename = `src/${compName}.tsx`;
+        b.language = 'javascript';
       } else if (lang === 'python' || lang === 'py') {
         b.filename = 'main.py';
+        b.language = 'python';
       } else if (lang === 'json') {
         b.filename = 'data.json';
+        b.language = 'json';
       } else {
-        b.filename = `file-${i + 1}.txt`;
+        // Fallback: If code contains tags or looks like markup, make it index.html, never .txt
+        if (code.trim().startsWith('<') || lowerCode.includes('<div') || lowerCode.includes('<script')) {
+          b.filename = usedNames.has('index.html') ? `page-${i + 1}.html` : 'index.html';
+          b.language = 'html';
+        } else {
+          b.filename = usedNames.has('index.html') ? `game.js` : 'index.html';
+          b.language = b.filename.endsWith('.html') ? 'html' : 'javascript';
+        }
       }
     }
     usedNames.add(b.filename);

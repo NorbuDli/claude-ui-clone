@@ -30,7 +30,8 @@ import {
   exportProjectAsZip,
   saveFileDirectToDisk,
   insertOrUpdateFileInTree,
-  insertFolderInTree
+  insertFolderInTree,
+  detectLanguage
 } from './fileSystemUtils';
 import { DEFAULT_CODE_PROJECTS, findFileById, updateFileContentInTree } from './defaultProjects';
 import { CodeProject, CodeFile, ConsoleLog, ProblemItem, CodeEditorSettings } from './types';
@@ -511,17 +512,32 @@ export const CodeWorkspaceView: React.FC = () => {
 
   const handleRenameNode = (id: string, newName: string) => {
     if (!currentProject) return;
+    const cleanNewName = newName.trim();
+    if (!cleanNewName) return;
+
     setProjects((prev) =>
       prev.map((proj) => {
         if (proj.id !== currentProject.id) return proj;
         const renameInTree = (nodes: any[]): any[] => {
           return nodes.map((n) => {
-            if (n.id === id) return { ...n, name: newName };
+            if (n.id === id) {
+              const oldPath = n.path || n.name;
+              const pathParts = oldPath.split('/');
+              pathParts[pathParts.length - 1] = cleanNewName;
+              const newPath = pathParts.join('/');
+
+              return {
+                ...n,
+                name: cleanNewName,
+                path: newPath,
+                language: n.isFolder ? undefined : detectLanguage(cleanNewName)
+              };
+            }
             if (n.isFolder && n.children) return { ...n, children: renameInTree(n.children) };
             return n;
           });
         };
-        return { ...proj, files: renameInTree(proj.files) };
+        return { ...proj, files: renameInTree(proj.files), updatedAt: Date.now() };
       })
     );
   };

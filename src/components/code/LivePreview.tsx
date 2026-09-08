@@ -177,9 +177,24 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
       };
     </script>`;
 
-    // Case 1: Pure HTML project
-    if (htmlFile && (reactFiles.length === 0 || activeHtml)) {
-      let content = htmlFile.content;
+    // Case 1: Pure HTML project or active HTML file
+    if (htmlFile && (reactFiles.length === 0 || activeHtml || htmlFile.content.includes('<canvas') || htmlFile.content.includes('<script') || htmlFile.content.includes('<!DOCTYPE') || htmlFile.content.includes('<html'))) {
+      let content = htmlFile.content.trim();
+
+      // Clean up any accidental markdown fences: ```html ... ``` or ``` ... ```
+      if (content.startsWith('```')) {
+        content = content.replace(/^```[a-zA-Z0-9_-]*[ \t]*\r?\n/, '').replace(/\r?\n```\s*$/, '').trim();
+      }
+
+      // If the content is conversational or has text before <!DOCTYPE or <html or <div or <canvas or <style
+      const tagStartIndex = content.search(/<(?:!doctype|html|head|body|div|canvas|style|script|main|section|header|p|h1|h2|button|svg)/i);
+      if (tagStartIndex > 0) {
+        content = content.substring(tagStartIndex).trim();
+      }
+
+      const hasHtmlTag = /<html[\s>]/i.test(content);
+      const hasHeadTag = /<head[\s>]/i.test(content);
+      const hasBodyTag = /<body[\s>]/i.test(content);
 
       // 1. Inlining linked CSS files:
       content = content.replace(/<link\s+[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*\/?>/gi, (match, href) => {
@@ -201,30 +216,56 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
         return match;
       });
 
-      // 3. If any project CSS files were not yet inlined, inject them into <head>
-      cssFiles.forEach(f => {
-        if (!content.includes(f.content)) {
-          if (content.includes('</head>')) {
-            content = content.replace('</head>', `<style data-file="${f.name}">\n${f.content}\n</style></head>`);
-          } else {
-            content = `<style data-file="${f.name}">\n${f.content}\n</style>\n${content}`;
-          }
-        }
-      });
+      // 3. If there is style.css in the project and it was not yet inlined and content doesn't already contain it
+      const projectStyleCss = cssFiles.find(f => f.name.toLowerCase() === 'style.css');
+      if (projectStyleCss && !content.includes(projectStyleCss.content) && !content.includes('style.css')) {
+        content = `<style data-file="style.css">\n${projectStyleCss.content}\n</style>\n${content}`;
+      }
 
-      // 4. If any project JS files were not yet inlined, inject them before </body>
-      jsFiles.forEach(f => {
-        if (!content.includes(f.content)) {
-          if (content.includes('</body>')) {
-            content = content.replace('</body>', `<script data-file="${f.name}">\n${f.content}\n</script></body>`);
-          } else {
-            content = `${content}\n<script data-file="${f.name}">\n${f.content}\n</script>`;
-          }
-        }
-      });
+      // 4. If there is game.js or main.js in the project and it was not yet inlined and content doesn't already contain it
+      const projectGameJs = jsFiles.find(f => f.name.toLowerCase() === 'game.js' || f.name.toLowerCase() === 'main.js');
+      if (projectGameJs && !content.includes(projectGameJs.content) && !content.includes(projectGameJs.name)) {
+        content = `${content}\n<script data-file="${projectGameJs.name}">\n${projectGameJs.content}\n</script>`;
+      }
 
-      if (content.includes('<head>')) {
-        return content.replace('<head>', `<head>${loggerScript}`);
+      // If snippet without <html> or <body>, wrap in a full HTML page
+      if (!hasHtmlTag && !hasBodyTag) {
+        return `<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${project.name}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  ${loggerScript}
+  <style>
+    body {
+      margin: 0;
+      padding: 16px;
+      background: #141413;
+      color: #ECEBE7;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+<body>
+  ${content}
+</body>
+</html>`;
+      }
+
+      if (hasHeadTag) {
+        return content.replace(/<head>/i, `<head>${loggerScript}`);
       }
       return `${loggerScript}\n${content}`;
     }

@@ -276,8 +276,9 @@ CRITICAL RULES FOR CODE AND FILE GENERATION:
    - If using \`index.html\`, include the HTML structure, canvas or container elements, and script/style tags.
 3. For React components:
    - Provide complete, runnable components in \`src/App.tsx\` or subcomponents in \`src/components/...\`.
-4. All code blocks you output are automatically parsed and immediately created/updated as files in the active project directory, and instantly executed in the Live Preview!
-5. Provide complete, working, bug-free code with no placeholders or missing functions.`;
+4. Never output code as generic .txt files or without language tags. Always use .html, .js, .css, or .tsx.
+5. All code blocks you output are automatically parsed and immediately created/updated as files in the active project directory, and instantly executed in the Live Preview!
+6. Provide complete, working, bug-free code with no placeholders or missing functions.`;
 
     let accumulatedText = '';
     let accumulatedThinking = '';
