@@ -63,6 +63,18 @@ const STATIC_FREE_MODELS_FALLBACK: FreeModelInfo[] = [
     isToolCapable: true
   },
   {
+    id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+    name: 'NVIDIA Nemotron 3 Nano Omni 30B (free)',
+    description: '30B reasoning model with high-speed generation from NVIDIA.',
+    contextLength: 131072,
+    inputModalities: ['text'],
+    outputModalities: ['text'],
+    supportedParameters: ['tools'],
+    isVisionCapable: false,
+    isReasoningCapable: true,
+    isToolCapable: true
+  },
+  {
     id: 'liquid/lfm-2.5-2.6b:free',
     name: 'Liquid LFM 2.5 2.6B (free)',
     description: 'Compact ultra-fast reasoning model from Liquid AI (sub-second first token).',

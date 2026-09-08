@@ -82,23 +82,24 @@ export class ModelRanker {
 
     // 4. CODING
     if (task === 'CODING') {
-      const preferred = findModel('ling-3.0-flash-fin');
+      const preferred = findModel('nemotron-3-ultra-550b') || findModel('nemotron');
       const fallbacks = [
+        'inclusionai/ling-3.0-flash-fin:free',
+        'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
         'poolside/laguna-xs-2.1:free',
-        'cohere/north-mini-code:free',
-        'minimax/minimax-m3:free'
+        'cohere/north-mini-code:free'
       ];
 
       const primaryId = preferred && cooldownManager.isAvailable(preferred.id)
         ? preferred.id
-        : 'poolside/laguna-xs-2.1:free';
+        : 'inclusionai/ling-3.0-flash-fin:free';
 
       const activeFallbacks = fallbacks.filter((id) => id !== primaryId);
 
       return {
         primaryModel: primaryId,
         fallbackModels: activeFallbacks,
-        reason: 'Coding & engineering: Ling 3.0 Flash Fin (with Laguna-XS and Cohere North Mini fallbacks)'
+        reason: 'Coding & engineering: NVIDIA Nemotron 3 Ultra 550B (with Ling 3.0 Flash Fin and Nemotron 30B fallbacks)'
       };
     }
 

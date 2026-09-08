@@ -14,7 +14,8 @@ export class ChatApiClient {
     messages: Message[],
     profile: ModelProfileId,
     systemPrompt: string,
-    callbacks: StreamCallbacks
+    callbacks: StreamCallbacks,
+    modelOverride?: string
   ): Promise<void> {
     this.abortController = new AbortController();
 
@@ -40,7 +41,8 @@ export class ChatApiClient {
         body: JSON.stringify({
           profile,
           messages: formattedMessages,
-          systemPrompt
+          systemPrompt,
+          modelOverride: modelOverride && modelOverride !== 'auto' ? modelOverride : undefined
         }),
         signal: this.abortController.signal
       });

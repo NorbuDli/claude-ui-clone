@@ -174,6 +174,14 @@ const FileOperationCard: React.FC<{
   );
 };
 
+const CODING_MODELS = [
+  { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', label: 'NVIDIA Nemotron 3 Ultra 550B (Primary)' },
+  { id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', label: 'NVIDIA Nemotron 30B Reasoning (Fast)' },
+  { id: 'inclusionai/ling-3.0-flash-fin:free', label: 'Ling 3.0 Flash Fin (Fast)' },
+  { id: 'cohere/north-mini-code:free', label: 'Cohere North Mini Code' },
+  { id: 'poolside/laguna-xs-2.1:free', label: 'Poolside Laguna XS 2.1' }
+];
+
 export const ClaudeAssistantPanel: React.FC<ClaudeAssistantPanelProps> = ({
   project,
   activeFile,
@@ -188,7 +196,7 @@ export const ClaudeAssistantPanel: React.FC<ClaudeAssistantPanelProps> = ({
   const [activeTab, setActiveTab] = useState<'console' | 'problems' | 'claude'>('claude');
   const [inputPrompt, setInputPrompt] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('Auto (Best Free Coding Model)');
+  const [selectedModelId, setSelectedModelId] = useState<string>('nvidia/nemotron-3-ultra-550b-a55b:free');
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -366,7 +374,8 @@ CRITICAL RULES FOR CODE AND FILE GENERATION:
               )
             );
           }
-        }
+        },
+        selectedModelId
       );
     } catch (err: any) {
       setIsStreaming(false);
@@ -743,24 +752,31 @@ CRITICAL RULES FOR CODE AND FILE GENERATION:
                         onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
                         className="flex items-center gap-1 text-xs text-[#8C8A82] hover:text-[#ECEBE7] px-2 py-1 rounded-lg hover:bg-[#262522] transition-colors"
                       >
-                        <span>{selectedModel}</span>
-                        <ChevronDown className="w-3 h-3 text-[#706E68]" />
+                        <span className="truncate max-w-[200px]">
+                          {CODING_MODELS.find((m) => m.id === selectedModelId)?.label || 'NVIDIA Nemotron 3 Ultra 550B'}
+                        </span>
+                        <ChevronDown className="w-3 h-3 text-[#706E68] shrink-0" />
                       </button>
 
                       {isModelDropdownOpen && (
-                        <div className="absolute right-0 bottom-full mb-1 w-56 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs">
-                          {['Auto (Best Free Coding Model)', 'Poolside Laguna S 2.1 (Free)', 'Cohere North Mini Code (Free)', 'MiniMax M3 (Free)'].map((m) => (
+                        <div className="absolute right-0 bottom-full mb-1 w-64 bg-[#1C1B19] border border-[#2B2A27] rounded-xl shadow-2xl p-1 z-50 text-xs">
+                          <div className="px-2 py-1 text-[10px] text-[#706E68] font-semibold uppercase tracking-wider border-b border-[#262522] mb-1">
+                            Coding Models (Free Tier)
+                          </div>
+                          {CODING_MODELS.map((m) => (
                             <button
-                              key={m}
+                              key={m.id}
                               type="button"
                               onClick={() => {
-                                setSelectedModel(m);
+                                setSelectedModelId(m.id);
                                 setIsModelDropdownOpen(false);
                               }}
-                              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#242320] text-[#ECEBE7] flex items-center justify-between"
+                              className={`w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#242320] flex items-center justify-between transition-colors ${
+                                selectedModelId === m.id ? 'text-[#DA7756] font-medium bg-[#242320]/60' : 'text-[#ECEBE7]'
+                              }`}
                             >
-                              <span>{m}</span>
-                              {selectedModel === m && <Check className="w-3 h-3 text-[#DA7756]" />}
+                              <span className="truncate">{m.label}</span>
+                              {selectedModelId === m.id && <Check className="w-3.5 h-3.5 text-[#DA7756] shrink-0 ml-1" />}
                             </button>
                           ))}
                         </div>
