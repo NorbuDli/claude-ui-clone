@@ -77,7 +77,12 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
       (f.name.endsWith('.js') && !f.name.endsWith('.config.js') && !htmlFile)
   );
 
-  const hasPreviewableContent = Boolean(htmlFile || reactFiles.length > 0 || (jsFiles.length > 0 && cssFiles.length > 0));
+  const hasPreviewableContent = Boolean(
+    htmlFile ||
+    reactFiles.length > 0 ||
+    jsFiles.length > 0 ||
+    cssFiles.length > 0
+  );
 
   // Extract all Lucide icon names imported across all project files
   const allLucideIcons = useMemo(() => {
@@ -153,49 +158,125 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
     }
 
     const combinedCss = cssFiles.map((f) => f.content).join('\n\n');
+    const combinedJs = jsFiles.map((f) => f.content).join('\n\n');
+
+    const loggerScript = `
+    <script>
+      window.onerror = function(msg, url, line, col, error) {
+        window.parent.postMessage({ type: 'code-preview-error', message: String(msg), line: line || 1, column: col || 1 }, '*');
+      };
+      const _log = console.log;
+      console.log = function(...args) {
+        _log.apply(console, args);
+        window.parent.postMessage({ type: 'code-preview-log', logType: 'info', message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') }, '*');
+      };
+      const _err = console.error;
+      console.error = function(...args) {
+        _err.apply(console, args);
+        window.parent.postMessage({ type: 'code-preview-log', logType: 'error', message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') }, '*');
+      };
+    </script>`;
 
     // Case 1: Pure HTML project
     if (htmlFile && (reactFiles.length === 0 || activeHtml)) {
       let content = htmlFile.content;
 
-      if (combinedCss && !content.includes(combinedCss)) {
-        if (content.includes('</head>')) {
-          content = content.replace('</head>', `<style>${combinedCss}</style></head>`);
-        } else {
-          content = `<style>${combinedCss}</style>\n${content}`;
+      // 1. Inlining linked CSS files:
+      content = content.replace(/<link\s+[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*\/?>/gi, (match, href) => {
+        const cssName = href.replace(/^(\.\/|\/)/, '').split('?')[0];
+        const matchingCss = cssFiles.find(f => f.name === cssName || f.path === cssName || f.path.endsWith(cssName));
+        if (matchingCss) {
+          return `<style data-inlined="${cssName}">\n${matchingCss.content}\n</style>`;
         }
-      }
+        return match;
+      });
 
-      const combinedJs = jsFiles.map((f) => f.content).join('\n\n');
-      if (combinedJs && !content.includes(combinedJs)) {
-        if (content.includes('</body>')) {
-          content = content.replace('</body>', `<script>${combinedJs}</script></body>`);
-        } else {
-          content = `${content}\n<script>${combinedJs}</script>`;
+      // 2. Inlining script tags:
+      content = content.replace(/<script\s+[^>]*src=["']([^"']+)["'][^>]*>\s*<\/script>/gi, (match, src) => {
+        const jsName = src.replace(/^(\.\/|\/)/, '').split('?')[0];
+        const matchingJs = jsFiles.find(f => f.name === jsName || f.path === jsName || f.path.endsWith(jsName));
+        if (matchingJs) {
+          return `<script data-inlined="${jsName}">\n${matchingJs.content}\n</script>`;
         }
-      }
+        return match;
+      });
 
-      const loggerScript = `
-      <script>
-        window.onerror = function(msg, url, line, col, error) {
-          window.parent.postMessage({ type: 'code-preview-error', message: String(msg), line: line || 1, column: col || 1 }, '*');
-        };
-        const _log = console.log;
-        console.log = function(...args) {
-          _log.apply(console, args);
-          window.parent.postMessage({ type: 'code-preview-log', logType: 'info', message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') }, '*');
-        };
-        const _err = console.error;
-        console.error = function(...args) {
-          _err.apply(console, args);
-          window.parent.postMessage({ type: 'code-preview-log', logType: 'error', message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') }, '*');
-        };
-      </script>`;
+      // 3. If any project CSS files were not yet inlined, inject them into <head>
+      cssFiles.forEach(f => {
+        if (!content.includes(f.content)) {
+          if (content.includes('</head>')) {
+            content = content.replace('</head>', `<style data-file="${f.name}">\n${f.content}\n</style></head>`);
+          } else {
+            content = `<style data-file="${f.name}">\n${f.content}\n</style>\n${content}`;
+          }
+        }
+      });
+
+      // 4. If any project JS files were not yet inlined, inject them before </body>
+      jsFiles.forEach(f => {
+        if (!content.includes(f.content)) {
+          if (content.includes('</body>')) {
+            content = content.replace('</body>', `<script data-file="${f.name}">\n${f.content}\n</script></body>`);
+          } else {
+            content = `${content}\n<script data-file="${f.name}">\n${f.content}\n</script>`;
+          }
+        }
+      });
 
       if (content.includes('<head>')) {
         return content.replace('<head>', `<head>${loggerScript}`);
       }
       return `${loggerScript}\n${content}`;
+    }
+
+    // Case 2: Standalone JS game or web script without an explicit index.html
+    if (!htmlFile && reactFiles.length === 0 && jsFiles.length > 0) {
+      return `<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${project.name}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  ${loggerScript}
+  <style>
+    body {
+      margin: 0;
+      padding: 16px;
+      background: #141413;
+      color: #ECEBE7;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    canvas {
+      background: #000;
+      border: 2px solid #333;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    ${combinedCss}
+  </style>
+</head>
+<body>
+  <div id="game-container" class="flex flex-col items-center gap-3">
+    <canvas id="canvas" width="400" height="400"></canvas>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <canvas id="game" width="400" height="400"></canvas>
+  </div>
+  <script>
+    try {
+      ${combinedJs}
+      window.parent.postMessage({ type: 'code-preview-ready' }, '*');
+    } catch(err) {
+      window.parent.postMessage({ type: 'code-preview-error', message: err.message || 'Script execution error' }, '*');
+    }
+  </script>
+</body>
+</html>`;
     }
 
     // Case 2: React / JSX / TSX project

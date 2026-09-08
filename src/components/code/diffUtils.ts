@@ -111,40 +111,28 @@ export function extractCodeBlocksFromAIResponse(response: string): ExtractedCode
   let match;
 
   while ((match = fenceRegex.exec(response)) !== null) {
-    const lang = match[1] || 'typescript';
+    const lang = (match[1] || 'plaintext').toLowerCase();
     let filename = match[2] || match[3] || match[4] || '';
     let code = match[5]?.trim() || '';
 
-    // If filename was in first line comments: // File: src/components/Navbar.tsx or // filepath: ...
+    // Check first line comments: // File: src/components/Navbar.tsx or <!-- index.html --> or /* style.css */
     if (!filename && code) {
-      const firstLineMatch = code.match(/^(?:\/\/|#|\/\*)\s*(?:file|filepath|path)?:\s*([a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+)/i);
+      const firstLineMatch = code.match(/^(?:\/\/|#|\/\*|<!--)\s*(?:file|filepath|path)?:\s*([a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+)/i);
       if (firstLineMatch) {
         filename = firstLineMatch[1].trim();
       } else {
-        const simpleCommentMatch = code.match(/^(?:\/\/|#)\s*([a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,4})(?:\s|$)/);
+        const simpleCommentMatch = code.match(/^(?:\/\/|#|<!--|\/\*)\s*([a-zA-Z0-9_./-]+\.[a-zA-Z0-9]{1,4})(?:\s|-->|\*\/|$)/);
         if (simpleCommentMatch) {
           filename = simpleCommentMatch[1].trim();
         }
       }
     }
 
-    // Infer filename from component export if not found
-    if (!filename && code) {
-      const componentMatch = code.match(/export\s+(?:default\s+)?(?:const|function|class)\s+([A-Z][a-zA-Z0-9_]*)/);
-      if (componentMatch) {
-        const compName = componentMatch[1];
-        const ext = lang.includes('tsx') || lang.includes('typescript') ? 'tsx' : lang.includes('jsx') ? 'jsx' : 'tsx';
-        filename = `${compName}.${ext}`;
-      }
-    }
-
-    // Clean filename
     if (filename) {
       filename = filename.replace(/[`"'*]/g, '').trim();
     }
 
     if (code && code.length > 5) {
-      // Avoid duplicate blocks
       const isDuplicate = blocks.some(b => b.code === code);
       if (!isDuplicate) {
         blocks.push({
@@ -155,6 +143,84 @@ export function extractCodeBlocksFromAIResponse(response: string): ExtractedCode
         });
       }
     }
+  }
+
+  // 3. Unclosed trailing code fence at the end of response (when token limit hit or incomplete fence)
+  const unclosedRegex = /(?:^|\n)```([a-zA-Z0-9_-]+)?(?::([^\s\n]+)|\s+(?:file|filename|title)=["']?([^"'\n]+)["']?|\s+([a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+))?\n([\s\S]+)$/;
+  const unclosedMatch = response.match(unclosedRegex);
+  if (unclosedMatch) {
+    const trailingCode = unclosedMatch[5].trim();
+    if (trailingCode.length > 20 && !blocks.some(b => b.code.includes(trailingCode.slice(0, 40)))) {
+      const lang = (unclosedMatch[1] || 'plaintext').toLowerCase();
+      const filename = unclosedMatch[2] || unclosedMatch[3] || unclosedMatch[4] || '';
+      blocks.push({
+        explanation: filename ? `File: ${filename}` : 'Proposed code',
+        code: trailingCode,
+        language: lang,
+        filename: filename ? filename.replace(/[`"'*]/g, '').trim() : undefined
+      });
+    }
+  }
+
+  // 4. Raw code fallback if no fenced code blocks were found
+  if (blocks.length === 0) {
+    const trimmed = response.trim();
+    const htmlMatch = trimmed.match(/(<!DOCTYPE html[\s\S]*?(?:<\/html>|$)|<html[\s\S]*?(?:<\/html>|$))/i);
+    if (htmlMatch && htmlMatch[1].length > 30) {
+      blocks.push({
+        explanation: 'Web Application / Game',
+        code: htmlMatch[1].trim(),
+        language: 'html',
+        filename: 'index.html'
+      });
+    } else if (trimmed.includes('function startGame') || trimmed.includes('canvas.getContext') || trimmed.includes('document.getElementById')) {
+      blocks.push({
+        explanation: 'Game Script',
+        code: trimmed,
+        language: 'javascript',
+        filename: 'game.js'
+      });
+    } else if (trimmed.includes('import React') || trimmed.includes('export default') || trimmed.includes('export const')) {
+      blocks.push({
+        explanation: 'React Component',
+        code: trimmed,
+        language: 'typescript',
+        filename: 'src/App.tsx'
+      });
+    }
+  }
+
+  // 5. Intelligent filename assignment for any block that didn't have an explicit filename
+  const usedNames = new Set<string>();
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    if (!b.filename) {
+      const code = b.code;
+      const lang = b.language.toLowerCase();
+
+      if (lang === 'html' || code.includes('<!DOCTYPE html>') || code.includes('<html') || code.includes('<canvas')) {
+        b.filename = usedNames.has('index.html') ? `page-${i + 1}.html` : 'index.html';
+      } else if (lang === 'css' || code.includes('@keyframes') || (code.includes('{') && code.includes(':') && !code.includes('function') && !code.includes('const ') && !code.includes('let '))) {
+        b.filename = usedNames.has('style.css') ? `style-${i + 1}.css` : 'style.css';
+      } else if (lang === 'javascript' || lang === 'js') {
+        if (code.includes('snake') || code.includes('canvas') || code.includes('game') || code.includes('score') || code.includes('startGame')) {
+          b.filename = usedNames.has('game.js') ? `game-${i + 1}.js` : 'game.js';
+        } else {
+          b.filename = usedNames.has('script.js') ? `script-${i + 1}.js` : 'script.js';
+        }
+      } else if (lang === 'typescript' || lang === 'tsx' || lang === 'jsx' || code.includes('import React') || code.includes('React.FC')) {
+        const compMatch = code.match(/export\s+(?:default\s+)?(?:const|function|class)\s+([A-Z][a-zA-Z0-9_]*)/);
+        const compName = compMatch ? compMatch[1] : (usedNames.has('src/App.tsx') ? `Component${i + 1}` : 'App');
+        b.filename = `src/${compName}.tsx`;
+      } else if (lang === 'python' || lang === 'py') {
+        b.filename = 'main.py';
+      } else if (lang === 'json') {
+        b.filename = 'data.json';
+      } else {
+        b.filename = `file-${i + 1}.txt`;
+      }
+    }
+    usedNames.add(b.filename);
   }
 
   return blocks;
@@ -170,7 +236,7 @@ export function inferFileOperation(
   activeFile: CodeFile | null
 ): FileOperationProposal {
   let targetFile: CodeFile | null = null;
-  const rawPath = block.filename || (activeFile ? activeFile.path : 'src/Component.tsx');
+  const rawPath = block.filename || (activeFile ? activeFile.path : 'index.html');
   const cleanPath = rawPath.replace(/^[/\\]+/, '').replace(/\\/g, '/');
   const baseName = cleanPath.split('/').pop() || cleanPath;
 
@@ -182,9 +248,13 @@ export function inferFileOperation(
     targetFile = allFiles.find(f => f.name === baseName) || null;
   }
 
-  // 3. Fallback to activeFile if no explicit filename was provided on the block
+  // 3. Fallback to activeFile ONLY if activeFile has matching extension/type
   if (!targetFile && !block.filename && activeFile) {
-    targetFile = activeFile;
+    const activeExt = activeFile.name.split('.').pop() || '';
+    const blockExt = baseName.split('.').pop() || '';
+    if (activeExt === blockExt) {
+      targetFile = activeFile;
+    }
   }
 
   if (targetFile) {
@@ -204,16 +274,11 @@ export function inferFileOperation(
     };
   } else {
     // New file -> Create operation
-    // If the path doesn't specify a folder and looks like a React component, put it in src/ or src/components/
     let resolvedPath = cleanPath;
     if (!resolvedPath.includes('/')) {
       const hasSrcFolder = allFiles.some(f => f.path.startsWith('src/'));
-      if (hasSrcFolder) {
-        if (resolvedPath.endsWith('.tsx') || resolvedPath.endsWith('.jsx')) {
-          resolvedPath = `src/components/${resolvedPath}`;
-        } else {
-          resolvedPath = `src/${resolvedPath}`;
-        }
+      if (hasSrcFolder && (resolvedPath.endsWith('.tsx') || resolvedPath.endsWith('.jsx'))) {
+        resolvedPath = `src/components/${resolvedPath}`;
       }
     }
 

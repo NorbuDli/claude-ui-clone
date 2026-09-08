@@ -30,6 +30,7 @@ interface ClaudeAssistantPanelProps {
   onClearLogs: () => void;
   onApplyDiff: (filePath: string, newContent: string) => void;
   onApplyFile?: (filePath: string, newContent: string) => void;
+  onApplyMultipleFiles?: (files: Array<{ filePath: string; content: string }>) => void;
   onSelectFileByPath?: (filePath: string) => void;
 }
 
@@ -181,6 +182,7 @@ export const ClaudeAssistantPanel: React.FC<ClaudeAssistantPanelProps> = ({
   onClearLogs,
   onApplyDiff,
   onApplyFile,
+  onApplyMultipleFiles,
   onSelectFileByPath
 }) => {
   const [activeTab, setActiveTab] = useState<'console' | 'problems' | 'claude'>('claude');
@@ -263,10 +265,19 @@ ${fileListStr || 'None yet'}
 ${codeContext}
 
 CRITICAL RULES FOR CODE AND FILE GENERATION:
-1. When modifying an existing file or creating a new file, ALWAYS include the target file path in the code fence header (e.g. \`\`\`tsx:src/components/Navbar.tsx or \`\`\`typescript:src/types.ts).
-2. When the user asks you to create a component or feature (e.g. "create a navbar", "build a timer", "add dark mode"), choose an appropriate, descriptive filename and path (e.g. \`src/components/Navbar.tsx\`).
-3. Provide complete, working, production-grade code.
-4. Keep the code compatible with React 18, Tailwind CSS, and Lucide icons.`;
+1. When creating or updating files, ALWAYS specify the target file path in the code block header.
+   Examples:
+   \`\`\`html:index.html
+   \`\`\`css:style.css
+   \`\`\`javascript:game.js
+   \`\`\`tsx:src/App.tsx
+2. For web games (like Snake, Pong, Breakout, Tetris) or vanilla web applications:
+   - Provide complete, self-contained files: \`index.html\`, \`style.css\`, and \`game.js\` (or a complete standalone \`index.html\`).
+   - If using \`index.html\`, include the HTML structure, canvas or container elements, and script/style tags.
+3. For React components:
+   - Provide complete, runnable components in \`src/App.tsx\` or subcomponents in \`src/components/...\`.
+4. All code blocks you output are automatically parsed and immediately created/updated as files in the active project directory, and instantly executed in the Live Preview!
+5. Provide complete, working, bug-free code with no placeholders or missing functions.`;
 
     let accumulatedText = '';
     let accumulatedThinking = '';
@@ -310,10 +321,34 @@ CRITICAL RULES FOR CODE AND FILE GENERATION:
                   inferFileOperation(block, currentFiles, activeFile)
                 );
 
+                // Auto-apply all generated files immediately to the project
+                const filesToApply = operations.map((op) => ({
+                  filePath: op.filePath,
+                  content: op.proposedContent
+                }));
+
+                if (onApplyMultipleFiles) {
+                  onApplyMultipleFiles(filesToApply);
+                } else {
+                  for (const f of filesToApply) {
+                    if (onApplyFile) {
+                      onApplyFile(f.filePath, f.content);
+                    } else {
+                      onApplyDiff(f.filePath, f.content);
+                    }
+                  }
+                }
+
+                // Mark the operations as accepted since they are now applied
+                const acceptedOps: FileOperationProposal[] = operations.map((op) => ({
+                  ...op,
+                  status: 'accepted'
+                }));
+
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantMsgId
-                      ? { ...m, fileOperations: operations }
+                      ? { ...m, fileOperations: acceptedOps }
                       : m
                   )
                 );

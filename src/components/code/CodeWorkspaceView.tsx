@@ -383,11 +383,10 @@ export const CodeWorkspaceView: React.FC = () => {
   const handleApplyFile = (filePath: string, content: string) => {
     if (!currentProject) return;
 
-    const { updatedNodes, fileId } = insertOrUpdateFileInTree(currentProject.files, filePath, content);
-
     setProjects((prev) =>
       prev.map((proj) => {
         if (proj.id !== currentProject.id) return proj;
+        const { updatedNodes, fileId } = insertOrUpdateFileInTree(proj.files, filePath, content);
         const openFileIds = proj.openFileIds.includes(fileId)
           ? proj.openFileIds
           : [...proj.openFileIds, fileId];
@@ -407,6 +406,63 @@ export const CodeWorkspaceView: React.FC = () => {
         id: String(Date.now()),
         type: 'success',
         message: `✓ Saved ${filePath} in project "${currentProject.name}"`,
+        timestamp: new Date().toLocaleTimeString()
+      }
+    ]);
+  };
+
+  const handleApplyMultipleFiles = (fileList: Array<{ filePath: string; content: string }>) => {
+    if (!currentProject || fileList.length === 0) return;
+
+    setProjects((prev) =>
+      prev.map((proj) => {
+        if (proj.id !== currentProject.id) return proj;
+        let currentTree = proj.files;
+        let lastFileId = proj.activeFileId;
+        const newOpenFileIds = [...proj.openFileIds];
+
+        for (const item of fileList) {
+          const res = insertOrUpdateFileInTree(currentTree, item.filePath, item.content);
+          currentTree = res.updatedNodes;
+          lastFileId = res.fileId;
+          if (!newOpenFileIds.includes(res.fileId)) {
+            newOpenFileIds.push(res.fileId);
+          }
+        }
+
+        let preferredActive = lastFileId;
+        const findMain = (nodes: any[]): string | null => {
+          for (const n of nodes) {
+            if (!n.isFolder) {
+              const lower = n.name.toLowerCase();
+              if (lower === 'index.html' || lower === 'app.tsx') return n.id;
+            } else if (n.children) {
+              const found = findMain(n.children);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+
+        const mainId = findMain(currentTree);
+        if (mainId) preferredActive = mainId;
+
+        return {
+          ...proj,
+          files: currentTree,
+          activeFileId: preferredActive,
+          openFileIds: newOpenFileIds,
+          updatedAt: Date.now()
+        };
+      })
+    );
+
+    setConsoleLogs((prev) => [
+      ...prev,
+      {
+        id: String(Date.now()),
+        type: 'success',
+        message: `✓ Added ${fileList.length} files to project "${currentProject.name}"`,
         timestamp: new Date().toLocaleTimeString()
       }
     ]);
@@ -883,6 +939,7 @@ export const CodeWorkspaceView: React.FC = () => {
             onClearLogs={() => setConsoleLogs([])}
             onApplyDiff={handleApplyDiff}
             onApplyFile={handleApplyFile}
+            onApplyMultipleFiles={handleApplyMultipleFiles}
             onSelectFileByPath={(path) => {
               const findByPath = (nodes: any[]): string | null => {
                 for (const n of nodes) {
