@@ -286,7 +286,11 @@ CRITICAL RULES FOR CODE AND FILE GENERATION:
    - Provide complete, runnable components in \`src/App.tsx\` or subcomponents in \`src/components/...\`.
 4. Never output code as generic .txt files or without language tags. Always use .html, .js, .css, or .tsx.
 5. All code blocks you output are automatically parsed and immediately created/updated as files in the active project directory, and instantly executed in the Live Preview!
-6. Provide complete, working, bug-free code with no placeholders or missing functions.`;
+6. Provide complete, working, bug-free code with no placeholders or missing functions.
+7. IMPORTANT: If the project already has files and the user asks you to create something NEW (a new game, a new page, a new app), you MUST use UNIQUE file names. Do NOT overwrite existing files.
+   - For example, if \`index.html\` already exists and the user asks for a new game, name it \`snake.html\` or \`game.html\`, NOT \`index.html\`.
+   - Similarly use descriptive names like \`calculator.js\`, \`todo.html\`, \`tetris.html\` etc.
+   - Only reuse an existing filename if the user explicitly asks you to MODIFY or UPDATE that specific file.`;
 
     let accumulatedText = '';
     let accumulatedThinking = '';

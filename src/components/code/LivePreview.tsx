@@ -162,8 +162,34 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
 
     const loggerScript = `
     <script>
+      // In-memory localStorage/sessionStorage polyfill for sandboxed iframes
+      (function() {
+        function createStorageShim() {
+          var _data = {};
+          return {
+            getItem: function(k) { return _data.hasOwnProperty(k) ? _data[k] : null; },
+            setItem: function(k, v) { _data[k] = String(v); },
+            removeItem: function(k) { delete _data[k]; },
+            clear: function() { _data = {}; },
+            get length() { return Object.keys(_data).length; },
+            key: function(i) { var keys = Object.keys(_data); return i >= 0 && i < keys.length ? keys[i] : null; }
+          };
+        }
+        try { window.localStorage.getItem('__test'); } catch(e) {
+          try { Object.defineProperty(window, 'localStorage', { value: createStorageShim(), configurable: true }); } catch(e2) {}
+        }
+        try { window.sessionStorage.getItem('__test'); } catch(e) {
+          try { Object.defineProperty(window, 'sessionStorage', { value: createStorageShim(), configurable: true }); } catch(e2) {}
+        }
+      })();
+
       window.onerror = function(msg, url, line, col, error) {
-        window.parent.postMessage({ type: 'code-preview-error', message: String(msg), line: line || 1, column: col || 1 }, '*');
+        var msgStr = String(msg);
+        // Suppress SecurityError and storage-related errors from showing in Problems tab
+        if (msgStr.indexOf('SecurityError') !== -1 || msgStr.indexOf('localStorage') !== -1 || msgStr.indexOf('sessionStorage') !== -1) {
+          return true;
+        }
+        window.parent.postMessage({ type: 'code-preview-error', message: msgStr, line: line || 1, column: col || 1 }, '*');
       };
       const _log = console.log;
       console.log = function(...args) {
@@ -173,7 +199,10 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
       const _err = console.error;
       console.error = function(...args) {
         _err.apply(console, args);
-        window.parent.postMessage({ type: 'code-preview-log', logType: 'error', message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') }, '*');
+        // Suppress SecurityError console errors from being reported
+        var msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+        if (msg.indexOf('SecurityError') !== -1 || msg.indexOf('localStorage') !== -1 || msg.indexOf('sessionStorage') !== -1) return;
+        window.parent.postMessage({ type: 'code-preview-log', logType: 'error', message: msg }, '*');
       };
     </script>`;
 
@@ -385,10 +414,35 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
     ${combinedCss}
   </style>
   <script>
+    // In-memory localStorage/sessionStorage polyfill for sandboxed iframes
+    (function() {
+      function createStorageShim() {
+        var _data = {};
+        return {
+          getItem: function(k) { return _data.hasOwnProperty(k) ? _data[k] : null; },
+          setItem: function(k, v) { _data[k] = String(v); },
+          removeItem: function(k) { delete _data[k]; },
+          clear: function() { _data = {}; },
+          get length() { return Object.keys(_data).length; },
+          key: function(i) { var keys = Object.keys(_data); return i >= 0 && i < keys.length ? keys[i] : null; }
+        };
+      }
+      try { window.localStorage.getItem('__test'); } catch(e) {
+        try { Object.defineProperty(window, 'localStorage', { value: createStorageShim(), configurable: true }); } catch(e2) {}
+      }
+      try { window.sessionStorage.getItem('__test'); } catch(e) {
+        try { Object.defineProperty(window, 'sessionStorage', { value: createStorageShim(), configurable: true }); } catch(e2) {}
+      }
+    })();
+
     window.onerror = function(msg, url, line, col, error) {
+      var msgStr = String(msg);
+      if (msgStr.indexOf('SecurityError') !== -1 || msgStr.indexOf('localStorage') !== -1 || msgStr.indexOf('sessionStorage') !== -1) {
+        return true;
+      }
       window.parent.postMessage({
         type: 'code-preview-error',
-        message: String(msg),
+        message: msgStr,
         line: line || 1,
         column: col || 1
       }, '*');
@@ -418,10 +472,12 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
     const _error = console.error;
     console.error = function(...args) {
       _error.apply(console, args);
+      var msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+      if (msg.indexOf('SecurityError') !== -1 || msg.indexOf('localStorage') !== -1 || msg.indexOf('sessionStorage') !== -1) return;
       window.parent.postMessage({
         type: 'code-preview-log',
         logType: 'error',
-        message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
+        message: msg
       }, '*');
     };
   </script>
@@ -530,6 +586,11 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
       if (e.data.type === 'code-preview-log') {
         onPreviewLog?.(e.data.logType || 'info', e.data.message);
       } else if (e.data.type === 'code-preview-error') {
+        // Filter out SecurityError / localStorage / sessionStorage errors — they are harmless in sandbox
+        const errMsg = String(e.data.message || '');
+        if (errMsg.includes('SecurityError') || errMsg.includes('localStorage') || errMsg.includes('sessionStorage')) {
+          return;
+        }
         setBuildError(e.data.message);
         onPreviewError?.({
           message: e.data.message,
