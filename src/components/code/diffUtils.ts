@@ -276,49 +276,8 @@ export function extractCodeBlocksFromAIResponse(response: string): ExtractedCode
 }
 
 /**
- * Simple content similarity check using Jaccard similarity on token sets.
- * Returns a value between 0 (completely different) and 1 (identical).
- */
-function computeContentSimilarity(a: string, b: string): number {
-  if (a === b) return 1;
-  if (!a || !b) return 0;
-  const tokenize = (s: string) => new Set(s.toLowerCase().replace(/[^a-z0-9_$]/gi, ' ').split(/\s+/).filter(t => t.length > 1));
-  const setA = tokenize(a);
-  const setB = tokenize(b);
-  if (setA.size === 0 && setB.size === 0) return 1;
-  if (setA.size === 0 || setB.size === 0) return 0;
-  let intersection = 0;
-  for (const token of setA) {
-    if (setB.has(token)) intersection++;
-  }
-  return intersection / (setA.size + setB.size - intersection);
-}
-
-/**
- * Generate a unique filename by appending a numeric suffix.
- * E.g., "index.html" -> "index-2.html", "game.js" -> "game-2.js"
- */
-function generateUniqueFilename(baseName: string, existingFiles: CodeFile[]): string {
-  const dotIndex = baseName.lastIndexOf('.');
-  const namePart = dotIndex > 0 ? baseName.slice(0, dotIndex) : baseName;
-  const extPart = dotIndex > 0 ? baseName.slice(dotIndex) : '';
-  const existingNames = new Set(existingFiles.map(f => f.name.toLowerCase()));
-  
-  for (let i = 2; i <= 50; i++) {
-    const candidate = `${namePart}-${i}${extPart}`;
-    if (!existingNames.has(candidate.toLowerCase())) {
-      return candidate;
-    }
-  }
-  return `${namePart}-${Date.now()}${extPart}`;
-}
-
-/**
  * Match an extracted code block to existing project files, determining whether it is a
  * new file creation or an edit/diff to an existing file.
- * 
- * If the matched file's content is very different from the proposed code (similarity < 0.3),
- * we create a new file with a unique name instead of overwriting.
  */
 export function inferFileOperation(
   block: ExtractedCodeBlock,
@@ -338,7 +297,7 @@ export function inferFileOperation(
     targetFile = allFiles.find(f => f.name === baseName) || null;
   }
 
-  // 3. Fallback to activeFile ONLY if activeFile has matching extension/type
+  // 3. Fallback to activeFile ONLY if activeFile has matching extension/type and no explicit filename was provided
   if (!targetFile && !block.filename && activeFile) {
     const activeExt = activeFile.name.split('.').pop() || '';
     const blockExt = baseName.split('.').pop() || '';
@@ -348,35 +307,6 @@ export function inferFileOperation(
   }
 
   if (targetFile) {
-    // Check content similarity — if the content is very different, the AI likely generated
-    // a completely new app/page rather than modifying the existing file
-    const similarity = computeContentSimilarity(targetFile.content, block.code);
-    
-    if (similarity < 0.3 && targetFile.content.length > 50 && block.code.length > 50) {
-      // Content is too different — treat as a NEW file with a unique name
-      const uniqueName = generateUniqueFilename(baseName, allFiles);
-      const dirPrefix = cleanPath.includes('/') ? cleanPath.substring(0, cleanPath.lastIndexOf('/') + 1) : '';
-      const newPath = `${dirPrefix}${uniqueName}`;
-      
-      const diffLines = block.code.split('\n').map((line, idx) => ({
-        type: 'added' as const,
-        content: line,
-        lineNumberNew: idx + 1
-      }));
-
-      return {
-        id: `op-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        type: 'create',
-        filePath: newPath,
-        fileName: uniqueName,
-        proposedContent: block.code,
-        language: block.language || targetFile.language,
-        explanation: `Create new file: ${newPath} (content differs significantly from existing ${baseName})`,
-        diffLines,
-        status: 'pending'
-      };
-    }
-
     // Existing file -> Edit operation with unified diff
     const diffLines = computeUnifiedDiff(targetFile.content, block.code);
     return {
