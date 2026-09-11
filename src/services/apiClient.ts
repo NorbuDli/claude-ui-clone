@@ -42,7 +42,7 @@ export class ChatApiClient {
           profile,
           messages: formattedMessages,
           systemPrompt,
-          modelOverride: modelOverride && modelOverride !== 'auto' ? modelOverride : undefined
+          modelOverride: modelOverride || undefined
         }),
         signal: this.abortController.signal
       });

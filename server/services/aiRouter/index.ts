@@ -4,3 +4,4 @@ export * from './modelCatalog';
 export * from './taskClassifier';
 export * from './modelRanker';
 export * from './routerEngine';
+export * from './codeModelConfig';

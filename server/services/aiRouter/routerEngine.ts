@@ -4,6 +4,8 @@ import { TaskClassifier } from './taskClassifier';
 import { ModelRanker } from './modelRanker';
 import { cooldownManager } from './cooldownManager';
 
+import { resolveCodeTier } from './codeModelConfig';
+
 export class RouterEngine {
   /**
    * Main entrypoint for processing chat requests with automatic multi-model routing and fallbacks.
@@ -36,14 +38,26 @@ export class RouterEngine {
     let reason = '';
     let isOverride = false;
 
-    // Manual override if AI_ROUTING_MODE=manual or modelOverride specified (and not 'auto')
-    const manualChoice = payload.modelOverride || (routingMode === 'manual' ? envModel : '');
-    if (manualChoice && manualChoice !== 'auto' && !manualChoice.includes('Auto')) {
-      primaryModel = manualChoice;
+    // Check if user requested a Code Tier (fable, opus, sonnet, auto)
+    const overrideInput = (payload.modelOverride || (routingMode === 'manual' ? envModel : '')).trim();
+    const lowerOverride = overrideInput.toLowerCase();
+    const isCodeTier = ['fable', 'opus', 'sonnet', 'auto'].includes(lowerOverride);
+
+    if (isCodeTier) {
+      const lastUserMsg = (payload.messages || []).filter((m) => m.role === 'user').pop();
+      const resolved = resolveCodeTier(lowerOverride, lastUserMsg?.content || '');
+      primaryModel = resolved.primaryModel;
+      fallbackModels = resolved.fallbackModels;
+      reason = resolved.reason;
+      isOverride = lowerOverride !== 'auto';
+    } else if (overrideInput && lowerOverride !== 'auto') {
+      // Direct raw provider model ID override
+      primaryModel = overrideInput;
       fallbackModels = freeModels.map((m) => m.id).filter((id) => id !== primaryModel).slice(0, 3);
-      reason = `Using manual model override: ${manualChoice}`;
+      reason = `Using manual model override: ${overrideInput}`;
       isOverride = true;
     } else {
+      // Automatic task routing
       const ranked = ModelRanker.rank(task, freeModels);
       primaryModel = ranked.primaryModel;
       fallbackModels = ranked.fallbackModels;
